@@ -1,0 +1,12 @@
+{
+  "name": "legacy-repo",
+  "version": "1.0.0",
+  "description": "Sample repo with a deliberately outdated dependency, for greenbump e2e testing.",
+  "private": true,
+  "scripts": {
+    "test": "node test.js"
+  },
+  "dependencies": {
+    "uuid": "3.4.0"
+  }
+}

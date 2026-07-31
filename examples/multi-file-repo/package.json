@@ -1,0 +1,12 @@
+{
+  "name": "multi-file-repo",
+  "version": "1.0.0",
+  "description": "Sample repo where one dependency upgrade breaks 3 separate files, for greenbump e2e testing of search_code.",
+  "private": true,
+  "scripts": {
+    "test": "node test.js"
+  },
+  "dependencies": {
+    "uuid": "3.4.0"
+  }
+}

@@ -1,0 +1,13 @@
+node_modules/
+dist/
+*.log
+.env
+.DS_Store
+
+# local Claude Code permissions/config — may accumulate secrets from ad-hoc
+# test runs (e.g. exported API keys in allowlisted Bash commands); never share.
+.claude/
+
+# example repos install their own deps during e2e runs
+examples/**/node_modules/
+examples/**/package-lock.json

@@ -1,0 +1,66 @@
+name: "greenbump"
+description: "Upgrade a dependency and let an AI agent fix the code it breaks, then open a green PR."
+branding:
+  icon: "arrow-up-circle"
+  color: "green"
+inputs:
+  anthropic-api-key:
+    description: "Your Anthropic API key (uses Claude). You pay for the tokens a fix costs."
+    required: false
+  deepseek-api-key:
+    description: "Your DeepSeek API key (uses DeepSeek, OpenAI-compatible). Provide this OR anthropic-api-key."
+    required: false
+  github-token:
+    description: "Token used to push the branch and open the PR. Use a PAT if you want CI to run on the PR."
+    required: false
+    default: ${{ github.token }}
+  dependency:
+    description: "Dependency to upgrade. Omit to pick the most-outdated one."
+    required: false
+  to:
+    description: "Target version (default: latest)."
+    required: false
+  ecosystem:
+    description: "Dependency ecosystem (npm, poetry, cargo, maven, …). Auto-detected if omitted."
+    required: false
+  build-cmd:
+    description: "Override the build command, e.g. \"make build\"."
+    required: false
+  test-cmd:
+    description: "Override the test command, e.g. \"make test\"."
+    required: false
+  provider:
+    description: "Model provider preset (openai, anthropic, deepseek, groq, …). Auto-detected if omitted."
+    required: false
+  model:
+    description: "Model id for the fix agent (default: per provider)."
+    required: false
+  base-url:
+    description: "Custom OpenAI-compatible endpoint (or override a preset)."
+    required: false
+  api-key:
+    description: "API key for --provider/--base-url. Prefer anthropic-api-key/deepseek-api-key for the built-in presets."
+    required: false
+  max-rounds:
+    description: "Max fix-loop rounds (caps token spend)."
+    required: false
+    default: "15"
+  base-branch:
+    description: "Base branch for the PR (default: the triggering branch)."
+    required: false
+outputs:
+  status:
+    description: "One of: pr-opened, pr-needs-review, no-changes, unfixed, skipped."
+  pr-url:
+    description: "URL of the opened PR, if any."
+  dependency:
+    description: "The dependency that was upgraded."
+  from:
+    description: "Version before the upgrade."
+  to:
+    description: "Version after the upgrade."
+  fixed:
+    description: "Whether build + tests ended up green."
+runs:
+  using: "node20"
+  main: "action-dist/index.cjs"

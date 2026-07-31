@@ -1,0 +1,36 @@
+# Copy this to .github/workflows/greenbump.yml in your repo.
+# Replace YOUR_GH_USERNAME/greenbump below with wherever this action is published.
+name: greenbump
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # every Monday 06:00 UTC
+  workflow_dispatch: # or run it by hand, optionally naming a dependency
+    inputs:
+      dependency:
+        description: "Dependency to upgrade (blank = most outdated)"
+        required: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm ci
+
+      - uses: YOUR_GH_USERNAME/greenbump@v0
+        with:
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          dependency: ${{ inputs.dependency }}
+          # Optional: use a PAT instead of the default token if you want
+          # the generated PR to trigger your CI workflows.
+          # github-token: ${{ secrets.GREENBUMP_PAT }}
