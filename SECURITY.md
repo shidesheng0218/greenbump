@@ -5,8 +5,8 @@
 Please do **not** open a public GitHub issue for security vulnerabilities.
 
 Instead, report it privately via GitHub's
-[private vulnerability reporting](https://github.com/YOUR_GH_USERNAME/greenbump/security/advisories/new)
-(replace `YOUR_GH_USERNAME` with wherever this repo actually lives), or by
+[private vulnerability reporting](https://github.com/shidesheng0218/greenbump/security/advisories/new)
+(https://github.com/shidesheng0218/greenbump), or by
 emailing the maintainer directly if that's not enabled yet.
 
 Include:

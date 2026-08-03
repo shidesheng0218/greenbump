@@ -16,12 +16,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/YOUR_GH_USERNAME/greenbump.git"
+    "url": "git+https://github.com/shidesheng0218/greenbump.git"
   },
   "bugs": {
-    "url": "https://github.com/YOUR_GH_USERNAME/greenbump/issues"
+    "url": "https://github.com/shidesheng0218/greenbump/issues"
   },
-  "homepage": "https://github.com/YOUR_GH_USERNAME/greenbump#readme",
+  "homepage": "https://github.com/shidesheng0218/greenbump#readme",
   "scripts": {
     "build": "tsc",
     "build:action": "npm run build && esbuild dist/action/main.js --bundle --platform=node --target=node20 --format=cjs --outfile=action-dist/index.cjs",

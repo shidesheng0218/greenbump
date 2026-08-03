@@ -1,5 +1,6 @@
 # Copy this to .github/workflows/greenbump.yml in your repo.
-# Replace YOUR_GH_USERNAME/greenbump below with wherever this action is published.
+# Example GitHub Actions workflow for greenbump
+# See https://github.com/shidesheng0218/greenbump for full documentation
 name: greenbump
 
 on:
@@ -27,7 +28,7 @@ jobs:
 
       - run: npm ci
 
-      - uses: YOUR_GH_USERNAME/greenbump@v0
+      - uses: shidesheng0218/greenbump@v0
         with:
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
           dependency: ${{ inputs.dependency }}

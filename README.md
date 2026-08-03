@@ -71,7 +71,7 @@ greenbump auto-detects the ecosystem from your project's lockfile/manifest. Run 
 
 **Verified end-to-end** against a real toolchain (detect → outdated → pin → install/build): npm, Yarn, pnpm, pip, Poetry, uv, Pipenv, Cargo, Go modules, Bundler, Composer, Gradle, Maven, NuGet (.NET), Mix (Hex), Pub (Dart/Flutter), Swift Package Manager, CocoaPods, Conan (C/C++), Elm.
 
-Please [report an issue](https://github.com/YOUR_GH_USERNAME/greenbump/issues) if one of these doesn't work as expected on your machine — real-world edge cases (unusual manifest styles, less common CLI flags) are the best signal for tightening these adapters further.
+Please [report an issue](https://github.com/shidesheng0218/greenbump/issues) if one of these doesn't work as expected on your machine — real-world edge cases (unusual manifest styles, less common CLI flags) are the best signal for tightening these adapters further.
 
 ## GitHub Action
 
@@ -94,12 +94,12 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
       - run: npm ci
-      - uses: YOUR_GH_USERNAME/greenbump@v0
+      - uses: shidesheng0218/greenbump@v0
         with:
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
 ```
 
-Replace `YOUR_GH_USERNAME/greenbump` above with wherever you publish this repo. Add your key as the `ANTHROPIC_API_KEY` repo secret. greenbump opens a normal PR when build + tests are green, or a **draft** PR (flagged for review) when it couldn't fully fix the upgrade or the repo has nothing to verify against.
+Replace `shidesheng0218/greenbump` above with wherever you publish this repo. Add your key as the `ANTHROPIC_API_KEY` repo secret. greenbump opens a normal PR when build + tests are green, or a **draft** PR (flagged for review) when it couldn't fully fix the upgrade or the repo has nothing to verify against.
 
 > **Want CI to run on the PR?** PRs opened with the default `GITHUB_TOKEN` don't trigger other workflows (a GitHub safeguard against loops). Pass a personal access token as `github-token:` if you need your CI to fire on greenbump's PRs.
 

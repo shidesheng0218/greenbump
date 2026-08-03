@@ -6837,7 +6837,7 @@ async function directDeps(cwd) {
 async function latestOnCratesIo(name) {
   try {
     const res = await fetch(`https://crates.io/api/v1/crates/${encodeURIComponent(name)}`, {
-      headers: { "User-Agent": "greenbump (https://github.com/YOUR_GH_USERNAME/greenbump)" }
+      headers: { "User-Agent": "greenbump (https://github.com/shidesheng0218/greenbump)" }
     });
     if (!res.ok)
       return null;
@@ -19421,7 +19421,7 @@ function renderPrBody(s2) {
   }
   lines.push(`<sub>${meta.join(" \xB7 ")}</sub>`);
   lines.push("");
-  lines.push("<sub>\u{1F331} Automated by [greenbump](https://github.com/YOUR_GH_USERNAME/greenbump).</sub>");
+  lines.push("<sub>\u{1F331} Automated by [greenbump](https://github.com/shidesheng0218/greenbump).</sub>");
   return lines.join("\n");
 }
 

@@ -37,7 +37,7 @@ async function directDeps(cwd: string): Promise<Map<string, string>> {
 async function latestOnCratesIo(name: string): Promise<string | null> {
   try {
     const res = await fetch(`https://crates.io/api/v1/crates/${encodeURIComponent(name)}`, {
-      headers: { "User-Agent": "greenbump (https://github.com/YOUR_GH_USERNAME/greenbump)" },
+      headers: { "User-Agent": "greenbump (https://github.com/shidesheng0218/greenbump)" },
     });
     if (!res.ok) return null;
     const data = (await res.json()) as { crate?: { max_stable_version?: string } };

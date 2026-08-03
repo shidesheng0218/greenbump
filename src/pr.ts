@@ -66,6 +66,6 @@ export function renderPrBody(s: RunSummary): string {
   lines.push(`<sub>${meta.join(" · ")}</sub>`);
 
   lines.push("");
-  lines.push("<sub>🌱 Automated by [greenbump](https://github.com/YOUR_GH_USERNAME/greenbump).</sub>");
+  lines.push("<sub>🌱 Automated by [greenbump](https://github.com/shidesheng0218/greenbump).</sub>");
   return lines.join("\n");
 }

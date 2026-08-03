@@ -77,7 +77,7 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v4
-      - uses: YOUR_GH_USERNAME/greenbump@v0
+      - uses: shidesheng0218/greenbump@v0
         with:
           packages: 'react typescript lodash'
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -208,6 +208,6 @@ A: 智能体被限制在项目目录内，不能执行任意命令。但它**会
 
 ## 反馈
 
-遇到问题或有建议？请在 [GitHub Issues](https://github.com/YOUR_GH_USERNAME/greenbump/issues) 提交。
+遇到问题或有建议？请在 [GitHub Issues](https://github.com/shidesheng0218/greenbump/issues) 提交。
 
-开发者：[@YOUR_GH_USERNAME](https://github.com/YOUR_GH_USERNAME)
+开发者：[@shidesheng0218](https://github.com/shidesheng0218)
