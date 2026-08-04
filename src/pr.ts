@@ -14,6 +14,13 @@ export function renderPrBody(s: RunSummary): string {
     );
   } else if (!s.neededFix) {
     lines.push("✅ Clean upgrade — build and tests stayed green with **no code changes**.");
+  } else if (s.fixed && s.needsReview) {
+    lines.push(
+      `✅ The upgrade broke the build/tests. greenbump adapted the code and **build + tests are green again** — but flagged for review below.`,
+    );
+    lines.push("");
+    lines.push(`**Files changed by the fix agent (${s.editedFiles.length}):**`);
+    for (const f of s.editedFiles) lines.push(`- \`${f}\``);
   } else if (s.fixed) {
     lines.push(
       `✅ The upgrade broke the build/tests. greenbump adapted the code and **build + tests are green again**.`,

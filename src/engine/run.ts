@@ -51,6 +51,13 @@ export interface RunSummary {
   neededFix: boolean;
   fixed: boolean;
   unverifiable: boolean;
+  /**
+   * A human should look before merging: the fix agent touched a test file to
+   * get green, or the upgrade couldn't be verified at all (no build/test
+   * scripts). Never flips `fixed` — this is an orthogonal "review me" signal,
+   * not a correctness verdict.
+   */
+  needsReview: boolean;
   committed: boolean;
   rounds: number;
   usage: { inputTokens: number; outputTokens: number };
@@ -62,6 +69,32 @@ export interface RunSummary {
 }
 
 export class RunError extends Error {}
+
+/**
+ * Pure decision logic for `needsReview`, split out so it's directly
+ * testable without spinning up a real npm/fix-loop run. `fixed`/`neededFix`
+ * are the fix loop's own outcome; `unverifiable` and `testFilesTouched` are
+ * the two independent triggers (see the `needsReview` field doc above).
+ */
+export function computeNeedsReview(input: {
+  unverifiable: boolean;
+  neededFix: boolean;
+  fixed: boolean;
+  testFilesTouched: string[];
+}): boolean {
+  if (input.unverifiable) return true;
+  if (!input.neededFix) return false;
+  return input.fixed && input.testFilesTouched.length > 0;
+}
+
+/** A batch target that never got far enough to produce a RunSummary. */
+export interface RunFailure {
+  dep: string;
+  error: string;
+  fatal: true;
+}
+
+export type BatchItemResult = RunSummary | RunFailure;
 
 export async function run(opts: RunOptions): Promise<RunSummary> {
   const log = opts.onLog ?? (() => {});
@@ -141,6 +174,7 @@ export async function run(opts: RunOptions): Promise<RunSummary> {
     neededFix: false,
     fixed: post.ok,
     unverifiable: post.unverifiable,
+    needsReview: false,
     committed: false,
     rounds: 0,
     usage: { inputTokens: 0, outputTokens: 0 },
@@ -152,6 +186,7 @@ export async function run(opts: RunOptions): Promise<RunSummary> {
   if (post.unverifiable) {
     // no way to verify — still a valid PR, just flagged
     log("no build/test scripts — upgrade applied but UNVERIFIED");
+    summary.needsReview = true;
     await maybeCommit(cwd, summary, true);
     summary.durationMs = Date.now() - startedAt;
     return summary;
@@ -195,6 +230,12 @@ export async function run(opts: RunOptions): Promise<RunSummary> {
   summary.usage = fix.usage;
   summary.editedFiles = fix.editedFiles;
   summary.testFilesTouched = fix.editedFiles.filter((f) => /(^|\/)(test|tests|__tests__|spec)(\/|\.)|\.(test|spec)\./i.test(f));
+  summary.needsReview = computeNeedsReview({
+    unverifiable: false,
+    neededFix: true,
+    fixed: fix.fixed,
+    testFilesTouched: summary.testFilesTouched,
+  });
 
   await maybeCommit(cwd, summary, fix.fixed);
   summary.durationMs = Date.now() - startedAt;

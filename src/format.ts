@@ -1,5 +1,5 @@
 import pc from "picocolors";
-import type { RunSummary } from "./engine/run.js";
+import type { RunSummary, BatchItemResult } from "./engine/run.js";
 
 export function formatDuration(ms: number): string {
   if (ms < 1000) return `${ms}ms`;
@@ -28,6 +28,9 @@ export function printSummaryBox(summary: RunSummary, write: (s: string) => void)
   } else if (!summary.neededFix) {
     barColor = pc.green;
     headline = `${pc.green("✓")} ${summary.dep} ${summary.from} → ${summary.to} — clean, nothing broke`;
+  } else if (summary.fixed && summary.needsReview) {
+    barColor = pc.yellow;
+    headline = `${pc.yellow("⚠")} ${summary.dep} ${summary.from} → ${summary.to} — fixed, but flagged for review`;
   } else if (summary.fixed) {
     barColor = pc.green;
     headline = `${pc.green("✓")} ${summary.dep} ${summary.from} → ${summary.to} — fixed and green`;
@@ -66,5 +69,36 @@ export function printSummaryBox(summary: RunSummary, write: (s: string) => void)
         `${pc.dim("branch")}           ${summary.branch}${summary.committed ? pc.green(" (committed)") : pc.yellow(" (uncommitted)")}`,
       ),
     );
+  }
+}
+
+/** One-line-per-target summary for --all / multi-dep / --group runs. */
+export function printBatchSummary(results: BatchItemResult[], write: (s: string) => void): void {
+  write(pc.bold(`${results.length} target(s):`));
+  for (const item of results) {
+    if ("error" in item) {
+      write(bar(`${pc.red("✗")} ${item.dep} — ${item.error}`, pc.red));
+      continue;
+    }
+    let icon: string;
+    let color: (s: string) => string;
+    if (item.unverifiable) {
+      icon = "⚠";
+      color = pc.yellow;
+    } else if (!item.neededFix) {
+      icon = "✓";
+      color = pc.green;
+    } else if (item.fixed && item.needsReview) {
+      icon = "⚠";
+      color = pc.yellow;
+    } else if (item.fixed) {
+      icon = "✓";
+      color = pc.green;
+    } else {
+      icon = "✗";
+      color = pc.red;
+    }
+    const suffix = item.needsReview ? " (needs review)" : !item.fixed && item.neededFix ? " (unfixed)" : "";
+    write(bar(`${color(icon)} ${item.dep} ${item.from} → ${item.to}${suffix}`, color));
   }
 }

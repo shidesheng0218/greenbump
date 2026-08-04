@@ -1,6 +1,7 @@
 import { run, RunError } from "../engine/run.js";
 import { renderPrBody } from "../pr.js";
 import { exec } from "../engine/exec.js";
+import { buildReport, writeReport } from "../report.js";
 import {
   getInput,
   setOutput,
@@ -62,6 +63,11 @@ async function main(): Promise<void> {
   setOutput("to", summary.to);
   setOutput("fixed", String(summary.fixed));
 
+  const reportFile = getInput("report-file");
+  if (reportFile) {
+    await writeReport(reportFile, buildReport([summary]));
+  }
+
   if (!summary.committed || !summary.branch) {
     info("no committable changes produced — not opening a PR.");
     setOutput("status", summary.fixed ? "no-changes" : "unfixed");
@@ -78,7 +84,12 @@ async function main(): Promise<void> {
     return;
   }
 
-  const needsReview = summary.unverifiable || (summary.neededFix && !summary.fixed);
+  // Both "flagged for review" and "fix loop exhausted without going green"
+  // are not-safe-to-merge-blindly states — both get a draft PR. Only the
+  // action output/label distinguishes which one it was.
+  const stillBroken = summary.neededFix && !summary.fixed;
+  const draft = summary.needsReview || stillBroken;
+  const reviewLabel = getInput("review-label") || "needs-review";
   const title = `chore(deps): bump ${summary.dep} ${summary.from} → ${summary.to}`;
   const url = await createPullRequest({
     token,
@@ -88,12 +99,13 @@ async function main(): Promise<void> {
     base,
     title,
     body: renderPrBody(summary),
-    draft: needsReview,
+    draft,
+    labels: summary.needsReview ? [reviewLabel] : undefined,
   });
 
   setOutput("pr-url", url ?? "");
-  setOutput("status", needsReview ? "pr-needs-review" : "pr-opened");
-  info(needsReview ? "opened a draft PR for review." : "opened a PR — build + tests green.");
+  setOutput("status", stillBroken ? "unfixed" : summary.needsReview ? "pr-needs-review" : "pr-opened");
+  info(draft ? "opened a draft PR for review." : "opened a PR — build + tests green.");
 }
 
 main().catch((err) => setFailed(`unexpected: ${(err as Error).message}`));

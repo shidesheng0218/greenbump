@@ -48,6 +48,13 @@ inputs:
   base-branch:
     description: "Base branch for the PR (default: the triggering branch)."
     required: false
+  review-label:
+    description: "Label added to the PR when it needs a human look (test file touched, or unverifiable). Auto-created if it doesn't exist."
+    required: false
+    default: "needs-review"
+  report-file:
+    description: "Write a JSON report of the run to this path."
+    required: false
 outputs:
   status:
     description: "One of: pr-opened, pr-needs-review, no-changes, unfixed, skipped."

@@ -3,10 +3,13 @@ import { Command } from "commander";
 import pc from "picocolors";
 import { resolve } from "node:path";
 import { run, RunError } from "./engine/run.js";
+import { runBatch } from "./engine/batch.js";
 import { renderPrBody } from "./pr.js";
 import { hasAnyKey, listProviders } from "./agent/factory.js";
-import { formatDuration, printSummaryBox } from "./format.js";
+import { formatDuration, printSummaryBox, printBatchSummary } from "./format.js";
 import { listEcosystems } from "./engine/ecosystems/index.js";
+import { exitCodeFor, overallExitCode } from "./exitcode.js";
+import { buildReport, writeReport } from "./report.js";
 
 const program = new Command();
 
@@ -15,9 +18,9 @@ program
   .description(
     "Upgrade a dependency and let an AI agent fix the code it breaks — until build + tests are green.",
   )
-  .argument("[dep]", "dependency to upgrade (default: the most-outdated one)")
+  .argument("[deps...]", "dependency name(s) to upgrade; omit with --all to auto-pick, or omit entirely for the most-outdated one")
   .option("--cwd <path>", "project directory to operate on (default: current dir)")
-  .option("--to <version>", "target version (default: latest)")
+  .option("--to <version>", "target version (default: latest); only valid with a single dependency")
   .option("--ecosystem <id>", "dependency ecosystem (npm, poetry, cargo, maven, …); auto-detected if omitted")
   .option("--list-ecosystems", "list supported ecosystems and exit")
   .option("--build-cmd <cmd>", "override the build command, e.g. \"make build\"")
@@ -30,7 +33,12 @@ program
   .option("--max-rounds <n>", "max fix-loop rounds (caps token spend)", "15")
   .option("--no-git", "operate in place instead of creating a branch")
   .option("--pr-body", "print the PR body markdown after finishing")
-  .action(async (dep, opts) => {
+  .option("--report-file <path>", "write a JSON report of the run(s) to this path")
+  .option("--all", "upgrade every outdated dependency found")
+  .option("--group <name>", "combine multiple deps named on the command line into one branch/PR")
+  .option("--fail-fast", "abort a batch on the first hard failure instead of continuing")
+  .option("--workspace <path>", "disambiguate a dep that's outdated at different versions in multiple workspace packages")
+  .action(async (deps, opts) => {
     if (opts.listProviders) {
       console.log("Built-in provider presets:\n" + listProviders());
       console.log("\nSet the matching env var (or pass --api-key), then run greenbump.");
@@ -61,28 +69,64 @@ program
       process.exit(1);
     }
 
+    if (opts.all && deps.length > 0) {
+      console.error(pc.red("✗ --all and an explicit dependency list are mutually exclusive."));
+      process.exit(1);
+    }
+    if (opts.to && (opts.all || deps.length > 1)) {
+      console.error(pc.red("✗ --to only makes sense with a single dependency."));
+      process.exit(1);
+    }
+
     const startedAt = Date.now();
     const log = (m: string) => {
       const elapsed = pc.dim(`[+${formatDuration(Date.now() - startedAt)}]`);
       console.error(`  ${elapsed} ${pc.dim(m)}`);
     };
+    const cwd = opts.cwd ? resolve(opts.cwd) : process.cwd();
+    const baseOpts = {
+      cwd,
+      ecosystem: opts.ecosystem,
+      buildCmd: opts.buildCmd,
+      testCmd: opts.testCmd,
+      provider: opts.provider,
+      model: opts.model,
+      baseURL: opts.baseUrl,
+      apiKey: opts.apiKey,
+      maxRounds: parseInt(opts.maxRounds, 10),
+      noGit: opts.git === false,
+      onLog: log,
+    };
+
+    const isBatch = opts.all || deps.length > 1;
 
     try {
       console.error(pc.bold(pc.green("🌱 greenbump")));
+
+      if (isBatch) {
+        const { results } = await runBatch({
+          ...baseOpts,
+          all: opts.all,
+          deps: opts.all ? undefined : deps,
+          group: opts.group,
+          workspace: opts.workspace,
+          failFast: opts.failFast,
+        });
+
+        console.error("");
+        printBatchSummary(results, console.error);
+
+        if (opts.reportFile) {
+          await writeReport(opts.reportFile, buildReport(results));
+        }
+
+        process.exit(overallExitCode(results));
+      }
+
       const summary = await run({
-        cwd: opts.cwd ? resolve(opts.cwd) : process.cwd(),
-        dep,
+        ...baseOpts,
+        dep: deps[0],
         to: opts.to,
-        ecosystem: opts.ecosystem,
-        buildCmd: opts.buildCmd,
-        testCmd: opts.testCmd,
-        provider: opts.provider,
-        model: opts.model,
-        baseURL: opts.baseUrl,
-        apiKey: opts.apiKey,
-        maxRounds: parseInt(opts.maxRounds, 10),
-        noGit: opts.git === false,
-        onLog: log,
       });
 
       console.error("");
@@ -92,7 +136,11 @@ program
         console.log("\n" + renderPrBody(summary));
       }
 
-      process.exit(summary.neededFix && !summary.fixed ? 2 : 0);
+      if (opts.reportFile) {
+        await writeReport(opts.reportFile, buildReport([summary]));
+      }
+
+      process.exit(exitCodeFor(summary));
     } catch (err) {
       console.error("");
       if (err instanceof RunError) {

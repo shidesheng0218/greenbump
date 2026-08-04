@@ -12,6 +12,13 @@ export interface FixResult {
   editedFiles: string[];
 }
 
+export interface FixDep {
+  dep: string;
+  from: string;
+  to: string;
+  changelog?: string | null;
+}
+
 export interface FixOptions {
   cwd: string;
   pm: PackageManager;
@@ -22,6 +29,13 @@ export interface FixOptions {
   dep: string;
   from: string;
   to: string;
+  /**
+   * Set for a `--group` run covering multiple dependencies at once — used
+   * INSTEAD of the singular dep/from/to/changelog fields above when present.
+   * The singular fields stay populated too (as the first entry) so existing
+   * single-dep call sites and tests are unaffected.
+   */
+  deps?: FixDep[];
   /** the failing build/test output that triggered the fix */
   failureOutput: string;
   /** release notes / changelog for the target version, if we found any */
@@ -29,15 +43,21 @@ export interface FixOptions {
   onLog?: (msg: string) => void;
 }
 
-function buildSystemPrompt(pm: PackageManager): string {
+function buildSystemPrompt(pm: PackageManager, deps?: FixDep[]): string {
   const adapter = getAdapter(pm);
   const protectedFiles = [...adapter.manifestFiles, ...adapter.lockFiles].join(", ");
-  return `You are greenbump's fix agent. A dependency was just upgraded and it broke the build or tests.
-Your job: edit the project's source code so that build and tests pass again — WITHOUT downgrading the dependency and WITHOUT weakening or deleting tests to make them pass.
+  const upgradeLine =
+    deps && deps.length > 1
+      ? `${deps.length} dependencies were just upgraded together and it broke the build or tests:\n${deps
+          .map((d) => `- ${d.dep} ${d.from} → ${d.to}`)
+          .join("\n")}`
+      : "A dependency was just upgraded and it broke the build or tests.";
+  return `You are greenbump's fix agent. ${upgradeLine}
+Your job: edit the project's source code so that build and tests pass again — WITHOUT downgrading any dependency and WITHOUT weakening or deleting tests to make them pass.
 
 Rules:
 - Make the smallest correct change that adapts the code to the new version's API.
-- Prefer following the dependency's documented migration path (renamed exports, changed signatures, moved modules, new required options). If release notes are provided below, treat them as authoritative over guessing.
+- Prefer following each dependency's documented migration path (renamed exports, changed signatures, moved modules, new required options). If release notes are provided below, treat them as authoritative over guessing.
 - Use search_code to find ALL call sites of the breaking API across the repo before editing — a partial fix that leaves other files broken wastes rounds.
 - Never edit ${protectedFiles}. The upgrade is intentional.
 - Never delete or trivially rewrite a test just to make it green. Fix the real cause.
@@ -248,16 +268,25 @@ export async function runFixLoop(opts: FixOptions): Promise<FixResult> {
   const log = opts.onLog ?? (() => {});
   const usage = { inputTokens: 0, outputTokens: 0 };
   const editedFiles = new Set<string>();
-  const SYSTEM = buildSystemPrompt(pm);
+  const SYSTEM = buildSystemPrompt(pm, opts.deps);
 
-  const changelogBlock = opts.changelog
-    ? `\n\nHere are the release notes for ${opts.dep}@${opts.to} — use them to find the correct migration:\n\n${opts.changelog}`
-    : "";
+  const upgradeSummary =
+    opts.deps && opts.deps.length > 1
+      ? opts.deps.map((d) => `\`${d.dep}\` from ${d.from} to ${d.to}`).join(", ")
+      : `\`${opts.dep}\` from ${opts.from} to ${opts.to}`;
+  const changelogBlock = opts.deps && opts.deps.length > 1
+    ? opts.deps
+        .filter((d) => d.changelog)
+        .map((d) => `\n\nRelease notes for ${d.dep}@${d.to}:\n\n${d.changelog}`)
+        .join("")
+    : opts.changelog
+      ? `\n\nHere are the release notes for ${opts.dep}@${opts.to} — use them to find the correct migration:\n\n${opts.changelog}`
+      : "";
 
   const messages: Msg[] = [
     {
       role: "user",
-      text: `The dependency \`${opts.dep}\` was upgraded from ${opts.from} to ${opts.to}.
+      text: `The dependenc${opts.deps && opts.deps.length > 1 ? "ies" : "y"} ${upgradeSummary} ${opts.deps && opts.deps.length > 1 ? "were" : "was"} upgraded.
 This broke the project. Here is the failing output:
 
 \`\`\`

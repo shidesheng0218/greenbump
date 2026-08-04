@@ -149,6 +149,50 @@ test("runFixLoop: read_file/write_file reject paths that escape the project root
   });
 });
 
+test("runFixLoop: opts.deps builds a multi-dependency prompt listing every upgrade and changelog", async () => {
+  await withTmpDir(async (dir) => {
+    await writePkg(dir, { build: "node -e \"process.exit(0)\"" });
+
+    const provider = scriptedProvider([{ toolCalls: [{ id: "1", name: "run_check", input: {} }] }]);
+
+    const result = await runFixLoop({
+      ...baseOpts,
+      cwd: dir,
+      provider,
+      maxRounds: 3,
+      deps: [
+        { dep: "lodash", from: "4.17.20", to: "4.17.21", changelog: "lodash notes" },
+        { dep: "axios", from: "1.2.0", to: "1.3.0", changelog: "axios notes" },
+      ],
+    });
+
+    assert.equal(result.fixed, true);
+
+    const firstCallMessages = provider.calls[0];
+    const userMsg = firstCallMessages.find((m) => m.role === "user") as { role: "user"; text: string } | undefined;
+    assert.ok(userMsg);
+    assert.match(userMsg!.text, /lodash/);
+    assert.match(userMsg!.text, /axios/);
+    assert.match(userMsg!.text, /lodash notes/);
+    assert.match(userMsg!.text, /axios notes/);
+  });
+});
+
+test("runFixLoop: single-dep call sites (no opts.deps) keep producing the original singular prompt", async () => {
+  await withTmpDir(async (dir) => {
+    await writePkg(dir, { build: "node -e \"process.exit(0)\"" });
+
+    const provider = scriptedProvider([{ toolCalls: [{ id: "1", name: "run_check", input: {} }] }]);
+
+    await runFixLoop({ ...baseOpts, cwd: dir, provider, maxRounds: 3 });
+
+    const firstCallMessages = provider.calls[0];
+    const userMsg = firstCallMessages.find((m) => m.role === "user") as { role: "user"; text: string } | undefined;
+    assert.ok(userMsg);
+    assert.match(userMsg!.text, /`lodash` from 4\.17\.20 to 4\.17\.21/);
+  });
+});
+
 test("runFixLoop: list_dir and search_code let the agent inspect real project files", async () => {
   await withTmpDir(async (dir) => {
     await writePkg(dir, { build: "node -e \"process.exit(0)\"" });

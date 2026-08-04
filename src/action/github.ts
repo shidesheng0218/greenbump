@@ -33,6 +33,8 @@ export interface CreatePrArgs {
   title: string;
   body: string;
   draft: boolean;
+  /** labels to attach after creation; GitHub auto-creates ones that don't exist yet */
+  labels?: string[];
 }
 
 /** Create a PR via the REST API using Node's global fetch. Returns the PR URL, or null on failure. */
@@ -64,5 +66,35 @@ export async function createPullRequest(args: CreatePrArgs): Promise<string | nu
   }
   const data = (await res.json()) as { html_url?: string; number?: number };
   info(`opened PR #${data.number}: ${data.html_url}`);
+
+  if (args.labels?.length && data.number) {
+    await addLabels(args, data.number, args.labels);
+  }
+
   return data.html_url ?? null;
+}
+
+/** The "create PR" endpoint doesn't accept labels directly — attach them via a follow-up call. */
+async function addLabels(
+  args: Pick<CreatePrArgs, "token" | "owner" | "repo">,
+  prNumber: number,
+  labels: string[],
+): Promise<void> {
+  const res = await fetch(
+    `https://api.github.com/repos/${args.owner}/${args.repo}/issues/${prNumber}/labels`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${args.token}`,
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ labels }),
+    },
+  );
+  if (!res.ok) {
+    const text = await res.text();
+    info(`::warning::could not add label(s) (${res.status}): ${text}`);
+  }
 }

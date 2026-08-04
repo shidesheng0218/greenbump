@@ -6978,14 +6978,14 @@ var bundlerAdapter = {
   }
 };
 async function pinInGemfile(cwd, name, version, fallback) {
-  const { readFile: readFile11, writeFile: writeFile7 } = await import("node:fs/promises");
+  const { readFile: readFile11, writeFile: writeFile8 } = await import("node:fs/promises");
   try {
     const path2 = (0, import_node_path11.join)(cwd, "Gemfile");
     const raw = await readFile11(path2, "utf8");
     const re2 = new RegExp(`^(\\s*gem\\s+["']${name}["'])(.*)$`, "m");
     if (re2.test(raw)) {
       const next = raw.replace(re2, `$1, "= ${version}"`);
-      await writeFile7(path2, next, "utf8");
+      await writeFile8(path2, next, "utf8");
     }
   } catch {
   }
@@ -7073,7 +7073,7 @@ var mavenAdapter = {
     return out;
   },
   async install(cwd, name, version) {
-    const { readFile: rf, writeFile: writeFile7 } = await import("node:fs/promises");
+    const { readFile: rf, writeFile: writeFile8 } = await import("node:fs/promises");
     const path2 = (0, import_node_path13.join)(cwd, "pom.xml");
     const [, artifactId] = name.split(":");
     const raw = await rf(path2, "utf8");
@@ -7081,7 +7081,7 @@ var mavenAdapter = {
     if (!re2.test(raw)) {
       return { code: 1, stdout: "", stderr: `could not find ${name} in pom.xml`, combined: `could not find ${name} in pom.xml` };
     }
-    await writeFile7(path2, raw.replace(re2, `$1${version}$3`), "utf8");
+    await writeFile8(path2, raw.replace(re2, `$1${version}$3`), "utf8");
     return { code: 0, stdout: `pinned ${name} to ${version} in pom.xml`, stderr: "", combined: "" };
   },
   async defaultCheckCommands() {
@@ -7264,14 +7264,14 @@ var mixAdapter = {
     return parseMixOutdated(r2.stdout);
   },
   async install(cwd, name, version) {
-    const { readFile: readFile11, writeFile: writeFile7 } = await import("node:fs/promises");
+    const { readFile: readFile11, writeFile: writeFile8 } = await import("node:fs/promises");
     const path2 = (0, import_node_path15.join)(cwd, "mix.exs");
     const raw = await readFile11(path2, "utf8");
     const re2 = new RegExp(`(\\{:${name},\\s*)"[^"]+"`);
     if (!re2.test(raw)) {
       return { code: 1, stdout: "", stderr: `could not find :${name} in mix.exs`, combined: `could not find :${name} in mix.exs` };
     }
-    await writeFile7(path2, raw.replace(re2, `$1"== ${version}"`), "utf8");
+    await writeFile8(path2, raw.replace(re2, `$1"== ${version}"`), "utf8");
     return { code: 0, stdout: `pinned ${name} to ${version} in mix.exs`, stderr: "", combined: "" };
   },
   async defaultCheckCommands() {
@@ -7587,8 +7587,8 @@ var elmAdapter = {
       return { code: 1, stdout: "", stderr: `${name} is not a direct dependency in elm.json`, combined: `${name} is not a direct dependency in elm.json` };
     }
     json.dependencies.direct[name] = version;
-    const { writeFile: writeFile7 } = await import("node:fs/promises");
-    await writeFile7(path2, JSON.stringify(json, null, 4), "utf8");
+    const { writeFile: writeFile8 } = await import("node:fs/promises");
+    await writeFile8(path2, JSON.stringify(json, null, 4), "utf8");
     return { code: 0, stdout: `pinned ${name} to ${version} in elm.json`, stderr: "", combined: "" };
   },
   async defaultCheckCommands() {
@@ -7781,15 +7781,17 @@ async function fullDiff(cwd, ref) {
 // dist/agent/fixer.js
 var import_promises11 = require("node:fs/promises");
 var import_node_path21 = require("node:path");
-function buildSystemPrompt(pm) {
+function buildSystemPrompt(pm, deps) {
   const adapter = getAdapter(pm);
   const protectedFiles = [...adapter.manifestFiles, ...adapter.lockFiles].join(", ");
-  return `You are greenbump's fix agent. A dependency was just upgraded and it broke the build or tests.
-Your job: edit the project's source code so that build and tests pass again \u2014 WITHOUT downgrading the dependency and WITHOUT weakening or deleting tests to make them pass.
+  const upgradeLine = deps && deps.length > 1 ? `${deps.length} dependencies were just upgraded together and it broke the build or tests:
+${deps.map((d2) => `- ${d2.dep} ${d2.from} \u2192 ${d2.to}`).join("\n")}` : "A dependency was just upgraded and it broke the build or tests.";
+  return `You are greenbump's fix agent. ${upgradeLine}
+Your job: edit the project's source code so that build and tests pass again \u2014 WITHOUT downgrading any dependency and WITHOUT weakening or deleting tests to make them pass.
 
 Rules:
 - Make the smallest correct change that adapts the code to the new version's API.
-- Prefer following the dependency's documented migration path (renamed exports, changed signatures, moved modules, new required options). If release notes are provided below, treat them as authoritative over guessing.
+- Prefer following each dependency's documented migration path (renamed exports, changed signatures, moved modules, new required options). If release notes are provided below, treat them as authoritative over guessing.
 - Use search_code to find ALL call sites of the breaking API across the repo before editing \u2014 a partial fix that leaves other files broken wastes rounds.
 - Never edit ${protectedFiles}. The upgrade is intentional.
 - Never delete or trivially rewrite a test just to make it green. Fix the real cause.
@@ -7997,8 +7999,13 @@ async function runFixLoop(opts) {
   });
   const usage = { inputTokens: 0, outputTokens: 0 };
   const editedFiles = /* @__PURE__ */ new Set();
-  const SYSTEM = buildSystemPrompt(pm);
-  const changelogBlock = opts.changelog ? `
+  const SYSTEM = buildSystemPrompt(pm, opts.deps);
+  const upgradeSummary = opts.deps && opts.deps.length > 1 ? opts.deps.map((d2) => `\`${d2.dep}\` from ${d2.from} to ${d2.to}`).join(", ") : `\`${opts.dep}\` from ${opts.from} to ${opts.to}`;
+  const changelogBlock = opts.deps && opts.deps.length > 1 ? opts.deps.filter((d2) => d2.changelog).map((d2) => `
+
+Release notes for ${d2.dep}@${d2.to}:
+
+${d2.changelog}`).join("") : opts.changelog ? `
 
 Here are the release notes for ${opts.dep}@${opts.to} \u2014 use them to find the correct migration:
 
@@ -8006,7 +8013,7 @@ ${opts.changelog}` : "";
   const messages = [
     {
       role: "user",
-      text: `The dependency \`${opts.dep}\` was upgraded from ${opts.from} to ${opts.to}.
+      text: `The dependenc${opts.deps && opts.deps.length > 1 ? "ies" : "y"} ${upgradeSummary} ${opts.deps && opts.deps.length > 1 ? "were" : "was"} upgraded.
 This broke the project. Here is the failing output:
 
 \`\`\`
@@ -19255,6 +19262,13 @@ ${listProviders()}`);
 // dist/engine/run.js
 var RunError = class extends Error {
 };
+function computeNeedsReview(input) {
+  if (input.unverifiable)
+    return true;
+  if (!input.neededFix)
+    return false;
+  return input.fixed && input.testFilesTouched.length > 0;
+}
 async function run(opts) {
   const log = opts.onLog ?? (() => {
   });
@@ -19309,6 +19323,7 @@ ${up.output}`);
     neededFix: false,
     fixed: post.ok,
     unverifiable: post.unverifiable,
+    needsReview: false,
     committed: false,
     rounds: 0,
     usage: { inputTokens: 0, outputTokens: 0 },
@@ -19318,6 +19333,7 @@ ${up.output}`);
   };
   if (post.unverifiable) {
     log("no build/test scripts \u2014 upgrade applied but UNVERIFIED");
+    summary.needsReview = true;
     await maybeCommit(cwd, summary, true);
     summary.durationMs = Date.now() - startedAt;
     return summary;
@@ -19357,6 +19373,12 @@ ${up.output}`);
   summary.usage = fix.usage;
   summary.editedFiles = fix.editedFiles;
   summary.testFilesTouched = fix.editedFiles.filter((f2) => /(^|\/)(test|tests|__tests__|spec)(\/|\.)|\.(test|spec)\./i.test(f2));
+  summary.needsReview = computeNeedsReview({
+    unverifiable: false,
+    neededFix: true,
+    fixed: fix.fixed,
+    testFilesTouched: summary.testFilesTouched
+  });
   await maybeCommit(cwd, summary, fix.fixed);
   summary.durationMs = Date.now() - startedAt;
   return summary;
@@ -19384,6 +19406,12 @@ function renderPrBody(s2) {
     lines.push("> \u26A0\uFE0F **Unverified** \u2014 this repo has no `build` or `test` script, so greenbump upgraded the dependency but could not confirm nothing broke. Please review.");
   } else if (!s2.neededFix) {
     lines.push("\u2705 Clean upgrade \u2014 build and tests stayed green with **no code changes**.");
+  } else if (s2.fixed && s2.needsReview) {
+    lines.push(`\u2705 The upgrade broke the build/tests. greenbump adapted the code and **build + tests are green again** \u2014 but flagged for review below.`);
+    lines.push("");
+    lines.push(`**Files changed by the fix agent (${s2.editedFiles.length}):**`);
+    for (const f2 of s2.editedFiles)
+      lines.push(`- \`${f2}\``);
   } else if (s2.fixed) {
     lines.push(`\u2705 The upgrade broke the build/tests. greenbump adapted the code and **build + tests are green again**.`);
     lines.push("");
@@ -19423,6 +19451,20 @@ function renderPrBody(s2) {
   lines.push("");
   lines.push("<sub>\u{1F331} Automated by [greenbump](https://github.com/shidesheng0218/greenbump).</sub>");
   return lines.join("\n");
+}
+
+// dist/report.js
+var import_promises12 = require("node:fs/promises");
+var REPORT_SCHEMA_VERSION = 1;
+function buildReport(runs) {
+  return {
+    schemaVersion: REPORT_SCHEMA_VERSION,
+    generatedAt: (/* @__PURE__ */ new Date()).toISOString(),
+    runs
+  };
+}
+async function writeReport(path2, envelope) {
+  await (0, import_promises12.writeFile)(path2, JSON.stringify(envelope, null, 2) + "\n", "utf8");
 }
 
 // dist/action/github.js
@@ -19473,7 +19515,26 @@ async function createPullRequest(args) {
   }
   const data = await res.json();
   info(`opened PR #${data.number}: ${data.html_url}`);
+  if (args.labels?.length && data.number) {
+    await addLabels(args, data.number, args.labels);
+  }
   return data.html_url ?? null;
+}
+async function addLabels(args, prNumber, labels) {
+  const res = await fetch(`https://api.github.com/repos/${args.owner}/${args.repo}/issues/${prNumber}/labels`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${args.token}`,
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ labels })
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    info(`::warning::could not add label(s) (${res.status}): ${text}`);
+  }
 }
 
 // dist/action/main.js
@@ -19526,6 +19587,10 @@ async function main() {
   setOutput("from", summary.from);
   setOutput("to", summary.to);
   setOutput("fixed", String(summary.fixed));
+  const reportFile = getInput("report-file");
+  if (reportFile) {
+    await writeReport(reportFile, buildReport([summary]));
+  }
   if (!summary.committed || !summary.branch) {
     info("no committable changes produced \u2014 not opening a PR.");
     setOutput("status", summary.fixed ? "no-changes" : "unfixed");
@@ -19540,7 +19605,9 @@ async function main() {
 ${push2.combined}`);
     return;
   }
-  const needsReview = summary.unverifiable || summary.neededFix && !summary.fixed;
+  const stillBroken = summary.neededFix && !summary.fixed;
+  const draft = summary.needsReview || stillBroken;
+  const reviewLabel = getInput("review-label") || "needs-review";
   const title = `chore(deps): bump ${summary.dep} ${summary.from} \u2192 ${summary.to}`;
   const url = await createPullRequest({
     token,
@@ -19550,11 +19617,12 @@ ${push2.combined}`);
     base,
     title,
     body: renderPrBody(summary),
-    draft: needsReview
+    draft,
+    labels: summary.needsReview ? [reviewLabel] : void 0
   });
   setOutput("pr-url", url ?? "");
-  setOutput("status", needsReview ? "pr-needs-review" : "pr-opened");
-  info(needsReview ? "opened a draft PR for review." : "opened a PR \u2014 build + tests green.");
+  setOutput("status", stillBroken ? "unfixed" : summary.needsReview ? "pr-needs-review" : "pr-opened");
+  info(draft ? "opened a draft PR for review." : "opened a PR \u2014 build + tests green.");
 }
 main().catch((err) => setFailed(`unexpected: ${err.message}`));
 /*! Bundled license information:
