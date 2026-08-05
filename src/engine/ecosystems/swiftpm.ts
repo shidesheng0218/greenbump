@@ -17,6 +17,29 @@ function repoNameFromUrl(url: string): string {
  * adapter in the set: works for the common declaration style, not
  * exhaustive.
  */
+export function parsePackageResolved(raw: string): Record<string, string> {
+  const resolved: Record<string, string> = {};
+  const data = JSON.parse(raw) as { pins?: Array<{ identity?: string; state?: { version?: string } }> };
+  for (const pin of data.pins ?? []) {
+    if (pin.identity && pin.state?.version) resolved[pin.identity] = pin.state.version;
+  }
+  return resolved;
+}
+
+export function parsePackageSwiftDeps(
+  manifest: string,
+  resolved: Record<string, string>,
+): Array<{ name: string; current: string; url: string }> {
+  const out: Array<{ name: string; current: string; url: string }> = [];
+  for (const m of manifest.matchAll(PKG_LINE)) {
+    const name = repoNameFromUrl(m[1]).toLowerCase();
+    const current = resolved[name];
+    if (!current) continue;
+    out.push({ name, current, url: m[1] });
+  }
+  return out;
+}
+
 export const swiftpmAdapter: EcosystemAdapter = {
   id: "swiftpm",
   displayName: "Swift Package Manager",
@@ -29,28 +52,20 @@ export const swiftpmAdapter: EcosystemAdapter = {
   },
 
   async outdated(cwd): Promise<Outdated[]> {
-    const resolvedPath = join(cwd, "Package.resolved");
     let resolved: Record<string, string> = {};
     try {
-      const raw = await readFile(resolvedPath, "utf8");
-      const data = JSON.parse(raw) as {
-        pins?: Array<{ identity?: string; state?: { version?: string } }>;
-      };
-      for (const pin of data.pins ?? []) {
-        if (pin.identity && pin.state?.version) resolved[pin.identity] = pin.state.version;
-      }
+      const raw = await readFile(join(cwd, "Package.resolved"), "utf8");
+      resolved = parsePackageResolved(raw);
     } catch {
       return [];
     }
 
     const manifest = await readFile(join(cwd, "Package.swift"), "utf8");
+    const deps = parsePackageSwiftDeps(manifest, resolved);
     const out: Outdated[] = [];
-    for (const m of manifest.matchAll(PKG_LINE)) {
-      const name = repoNameFromUrl(m[1]).toLowerCase();
-      const current = resolved[name];
-      if (!current) continue;
-      const latest = await latestGitHubTag(m[1]);
-      if (latest && latest !== current) out.push({ name, current, wanted: "", latest });
+    for (const dep of deps) {
+      const latest = await latestGitHubTag(dep.url);
+      if (latest && latest !== dep.current) out.push({ name: dep.name, current: dep.current, wanted: "", latest });
     }
     return out;
   },

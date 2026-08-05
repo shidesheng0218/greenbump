@@ -193,6 +193,39 @@ test("runFixLoop: single-dep call sites (no opts.deps) keep producing the origin
   });
 });
 
+test("runFixLoop: hitting maxTokens stops the loop early and reports budgetExceeded", async () => {
+  await withTmpDir(async (dir) => {
+    await writePkg(dir, { build: "node -e \"process.exit(1)\"" });
+
+    // Each round costs 10+5=15 tokens (see scriptedProvider); cap at 20 so round 2 trips it.
+    const provider = scriptedProvider([
+      { toolCalls: [{ id: "1", name: "run_check", input: {} }] },
+      { toolCalls: [{ id: "2", name: "run_check", input: {} }] },
+      { toolCalls: [{ id: "3", name: "run_check", input: {} }] },
+    ]);
+
+    const result = await runFixLoop({ ...baseOpts, cwd: dir, provider, maxRounds: 5, maxTokens: 20 });
+
+    assert.equal(result.fixed, false);
+    assert.equal(result.budgetExceeded, true);
+    assert.equal(result.rounds, 2);
+    assert.equal(provider.calls.length, 2);
+  });
+});
+
+test("runFixLoop: without maxTokens set, the loop runs to completion as before", async () => {
+  await withTmpDir(async (dir) => {
+    await writePkg(dir, { build: "node -e \"process.exit(0)\"" });
+
+    const provider = scriptedProvider([{ toolCalls: [{ id: "1", name: "run_check", input: {} }] }]);
+
+    const result = await runFixLoop({ ...baseOpts, cwd: dir, provider, maxRounds: 3 });
+
+    assert.equal(result.fixed, true);
+    assert.equal(result.budgetExceeded, false);
+  });
+});
+
 test("runFixLoop: list_dir and search_code let the agent inspect real project files", async () => {
   await withTmpDir(async (dir) => {
     await writePkg(dir, { build: "node -e \"process.exit(0)\"" });

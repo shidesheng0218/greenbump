@@ -221,6 +221,7 @@ async function runGrouped(
     checkOverrides,
     provider,
     maxRounds: opts.maxRounds,
+    maxTokens: opts.maxTokens,
     dep: deps[0]?.dep ?? groupName,
     from: deps[0]?.from ?? "",
     to: deps[0]?.to ?? "",
@@ -240,6 +241,7 @@ async function runGrouped(
     neededFix: true,
     fixed: fix.fixed,
     testFilesTouched: summary.testFilesTouched,
+    budgetExceeded: fix.budgetExceeded,
   });
 
   await maybeCommitGroup(cwd, summary, depsSummary, fix.fixed);

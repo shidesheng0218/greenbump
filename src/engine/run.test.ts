@@ -46,3 +46,29 @@ test("computeNeedsReview: fix loop failed (unfixed) never needs review — that'
     false,
   );
 });
+
+test("computeNeedsReview: budgetExceeded always needs review, even on a clean/no-fix-needed run", () => {
+  assert.equal(
+    computeNeedsReview({
+      unverifiable: false,
+      neededFix: false,
+      fixed: true,
+      testFilesTouched: [],
+      budgetExceeded: true,
+    }),
+    true,
+  );
+});
+
+test("computeNeedsReview: budgetExceeded still needs review even when fixed with no test file touched", () => {
+  assert.equal(
+    computeNeedsReview({
+      unverifiable: false,
+      neededFix: true,
+      fixed: true,
+      testFilesTouched: [],
+      budgetExceeded: true,
+    }),
+    true,
+  );
+});

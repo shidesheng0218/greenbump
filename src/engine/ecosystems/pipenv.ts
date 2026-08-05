@@ -3,6 +3,13 @@ import { exec } from "../exec.js";
 import { pathExists, safeJson, type EcosystemAdapter, type Outdated } from "./types.js";
 import { guessPythonTestCommand } from "./python-shared.js";
 
+export function parsePipenvOutdated(
+  data: Array<{ name: string; version: string; latest_version: string }> | null,
+): Outdated[] {
+  if (!data) return [];
+  return data.map((d) => ({ name: d.name, current: d.version, wanted: "", latest: d.latest_version }));
+}
+
 export const pipenvAdapter: EcosystemAdapter = {
   id: "pipenv",
   displayName: "Pipenv",
@@ -22,8 +29,7 @@ export const pipenvAdapter: EcosystemAdapter = {
       timeout: 120_000,
     });
     const data = safeJson<Array<{ name: string; version: string; latest_version: string }>>(r.stdout);
-    if (!data) return [];
-    return data.map((d) => ({ name: d.name, current: d.version, wanted: "", latest: d.latest_version }));
+    return parsePipenvOutdated(data);
   },
 
   async install(cwd, name, version) {

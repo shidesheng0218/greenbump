@@ -31,6 +31,7 @@ program
   .option("--api-key <key>", "API key (default: read from the provider's env var)")
   .option("--list-providers", "list built-in provider presets and exit")
   .option("--max-rounds <n>", "max fix-loop rounds (caps token spend)", "15")
+  .option("--max-tokens <n>", "hard cap on total tokens spent by the fix loop; stops and flags for review on overrun")
   .option("--no-git", "operate in place instead of creating a branch")
   .option("--pr-body", "print the PR body markdown after finishing")
   .option("--report-file <path>", "write a JSON report of the run(s) to this path")
@@ -94,6 +95,7 @@ program
       baseURL: opts.baseUrl,
       apiKey: opts.apiKey,
       maxRounds: parseInt(opts.maxRounds, 10),
+      maxTokens: opts.maxTokens ? parseInt(opts.maxTokens, 10) : undefined,
       noGit: opts.git === false,
       onLog: log,
     };

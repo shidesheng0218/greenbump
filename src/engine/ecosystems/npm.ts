@@ -13,6 +13,13 @@ async function readScripts(cwd: string): Promise<{ build?: string; test?: string
   }
 }
 
+export function parseNpmOutdated(data: Record<string, { current?: string; latest?: string }> | null): Outdated[] {
+  if (!data) return [];
+  return Object.entries(data)
+    .map(([name, v]) => ({ name, current: v.current ?? "", wanted: "", latest: v.latest ?? "" }))
+    .filter((o) => o.latest && o.current !== o.latest);
+}
+
 export const npmAdapter: EcosystemAdapter = {
   id: "npm",
   displayName: "npm",
@@ -27,10 +34,7 @@ export const npmAdapter: EcosystemAdapter = {
   async outdated(cwd): Promise<Outdated[]> {
     const r = await exec("npm", ["outdated", "--json"], { cwd, timeout: 120_000 });
     const data = safeJson<Record<string, { current?: string; latest?: string }>>(r.stdout);
-    if (!data) return [];
-    return Object.entries(data)
-      .map(([name, v]) => ({ name, current: v.current ?? "", wanted: "", latest: v.latest ?? "" }))
-      .filter((o) => o.latest && o.current !== o.latest);
+    return parseNpmOutdated(data);
   },
 
   async install(cwd, name, version) {

@@ -3,6 +3,13 @@ import { exec } from "../exec.js";
 import { pathExists, safeJson, type EcosystemAdapter, type Outdated } from "./types.js";
 import { guessPythonTestCommand } from "./python-shared.js";
 
+export function parseUvOutdated(
+  data: Array<{ name: string; version: string; latest_version: string }> | null,
+): Outdated[] {
+  if (!data) return [];
+  return data.map((d) => ({ name: d.name, current: d.version, wanted: "", latest: d.latest_version }));
+}
+
 export const uvAdapter: EcosystemAdapter = {
   id: "uv",
   displayName: "uv",
@@ -20,11 +27,8 @@ export const uvAdapter: EcosystemAdapter = {
     // against the project's venv, which is the documented machine-readable path.
     const r2 = await exec("uv", ["pip", "list", "--outdated", "--format", "json"], { cwd, timeout: 120_000 });
     const data = safeJson<Array<{ name: string; version: string; latest_version: string }>>(r2.stdout);
-    if (data) {
-      return data.map((d) => ({ name: d.name, current: d.version, wanted: "", latest: d.latest_version }));
-    }
     void r;
-    return [];
+    return parseUvOutdated(data);
   },
 
   async install(cwd, name, version) {

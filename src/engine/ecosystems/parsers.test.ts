@@ -13,6 +13,13 @@ import { parsePoetryOutdated } from "./poetry.js";
 import { parseCocoapodsOutdated } from "./cocoapods.js";
 import { parseMixOutdated } from "./mix.js";
 import { parseConanfileTxt } from "./conan.js";
+import { parseNpmOutdated } from "./npm.js";
+import { parsePnpmOutdated } from "./pnpm.js";
+import { parsePipOutdated } from "./pip.js";
+import { parseUvOutdated } from "./uv.js";
+import { parsePipenvOutdated } from "./pipenv.js";
+import { parseElmDirectDeps } from "./elm.js";
+import { parsePackageResolved, parsePackageSwiftDeps } from "./swiftpm.js";
 
 test("yarn: parses the ndjson table row, skips non-table lines", () => {
   const stdout = [
@@ -171,5 +178,104 @@ test("conan: parses [requires] section of conanfile.txt", () => {
   assert.deepEqual(result, [
     { name: "zlib", version: "1.2.13" },
     { name: "boost", version: "1.83.0" },
+  ]);
+});
+
+test("npm: parses `npm outdated --json` output, dropping entries already at latest", () => {
+  const data = {
+    lodash: { current: "4.17.20", latest: "4.17.21" },
+    axios: { current: "1.3.0", latest: "1.3.0" },
+  };
+  const result = parseNpmOutdated(data);
+  assert.deepEqual(result, [{ name: "lodash", current: "4.17.20", wanted: "", latest: "4.17.21" }]);
+});
+
+test("npm: null data (non-JSON stdout) yields empty result", () => {
+  assert.deepEqual(parseNpmOutdated(null), []);
+});
+
+test("pnpm: parses `pnpm outdated --format json`, tolerating missing current/latest", () => {
+  const data = {
+    lodash: { current: "4.17.20", latest: "4.17.21" },
+    // pnpm can omit fields for workspace-linked packages; guard against undefined.
+    weird: {},
+  };
+  const result = parsePnpmOutdated(data);
+  assert.deepEqual(result, [{ name: "lodash", current: "4.17.20", wanted: "", latest: "4.17.21" }]);
+});
+
+test("pnpm: null data yields empty result", () => {
+  assert.deepEqual(parsePnpmOutdated(null), []);
+});
+
+test("pip: parses `pip list --outdated --format json`", () => {
+  const data = [
+    { name: "requests", version: "2.28.0", latest_version: "2.31.0" },
+    { name: "flask", version: "2.0.0", latest_version: "2.3.3" },
+  ];
+  const result = parsePipOutdated(data);
+  assert.deepEqual(result, [
+    { name: "requests", current: "2.28.0", wanted: "", latest: "2.31.0" },
+    { name: "flask", current: "2.0.0", wanted: "", latest: "2.3.3" },
+  ]);
+});
+
+test("pip: null data yields empty result", () => {
+  assert.deepEqual(parsePipOutdated(null), []);
+});
+
+test("uv: parses `uv pip list --outdated --format json` (same shape as pip)", () => {
+  const data = [{ name: "requests", version: "2.28.0", latest_version: "2.31.0" }];
+  const result = parseUvOutdated(data);
+  assert.deepEqual(result, [{ name: "requests", current: "2.28.0", wanted: "", latest: "2.31.0" }]);
+});
+
+test("uv: null data yields empty result", () => {
+  assert.deepEqual(parseUvOutdated(null), []);
+});
+
+test("pipenv: parses `pipenv run pip list --outdated --format json`", () => {
+  const data = [{ name: "django", version: "4.0.0", latest_version: "4.2.5" }];
+  const result = parsePipenvOutdated(data);
+  assert.deepEqual(result, [{ name: "django", current: "4.0.0", wanted: "", latest: "4.2.5" }]);
+});
+
+test("pipenv: null data yields empty result", () => {
+  assert.deepEqual(parsePipenvOutdated(null), []);
+});
+
+test("elm: extracts direct dependencies from elm.json, ignoring indirect deps", () => {
+  const json = {
+    dependencies: {
+      direct: { "elm/core": "1.0.5", "elm/json": "1.1.3" },
+      indirect: { "elm/bytes": "1.0.8" },
+    },
+  };
+  assert.deepEqual(parseElmDirectDeps(json), { "elm/core": "1.0.5", "elm/json": "1.1.3" });
+});
+
+test("elm: missing dependencies field yields empty object", () => {
+  assert.deepEqual(parseElmDirectDeps({}), {});
+});
+
+test("swiftpm: parses Package.resolved pins into a name-to-version map", () => {
+  const raw = JSON.stringify({
+    pins: [
+      { identity: "swift-log", state: { version: "1.5.3" } },
+      { identity: "no-version-pin", state: {} },
+    ],
+  });
+  assert.deepEqual(parsePackageResolved(raw), { "swift-log": "1.5.3" });
+});
+
+test("swiftpm: extracts .package(url:, from:) declarations and joins with resolved versions", () => {
+  const manifest = [
+    ".package(url: \"https://github.com/apple/swift-log.git\", from: \"1.4.0\")",
+    ".package(url: \"https://github.com/apple/swift-nio.git\", from: \"2.0.0\")",
+  ].join("\n");
+  const resolved = { "swift-log": "1.5.3" }; // swift-nio has no resolved pin (e.g. not yet fetched)
+  const result = parsePackageSwiftDeps(manifest, resolved);
+  assert.deepEqual(result, [
+    { name: "swift-log", current: "1.5.3", url: "https://github.com/apple/swift-log.git" },
   ]);
 });

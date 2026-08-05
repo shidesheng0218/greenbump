@@ -36,6 +36,8 @@ export interface RunOptions {
   /** explicit API key override */
   apiKey?: string;
   maxRounds: number;
+  /** hard cap on total (input + output) tokens spent by the fix loop; unset = no cap */
+  maxTokens?: number;
   /** skip creating a git branch and operate in place */
   noGit?: boolean;
   onLog?: (m: string) => void;
@@ -81,8 +83,10 @@ export function computeNeedsReview(input: {
   neededFix: boolean;
   fixed: boolean;
   testFilesTouched: string[];
+  budgetExceeded?: boolean;
 }): boolean {
   if (input.unverifiable) return true;
+  if (input.budgetExceeded) return true;
   if (!input.neededFix) return false;
   return input.fixed && input.testFilesTouched.length > 0;
 }
@@ -218,6 +222,7 @@ export async function run(opts: RunOptions): Promise<RunSummary> {
     checkOverrides,
     provider,
     maxRounds: opts.maxRounds,
+    maxTokens: opts.maxTokens,
     dep: target.name,
     from,
     to,
@@ -235,6 +240,7 @@ export async function run(opts: RunOptions): Promise<RunSummary> {
     neededFix: true,
     fixed: fix.fixed,
     testFilesTouched: summary.testFilesTouched,
+    budgetExceeded: fix.budgetExceeded,
   });
 
   await maybeCommit(cwd, summary, fix.fixed);

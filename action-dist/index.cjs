@@ -6511,6 +6511,11 @@ async function readScripts(cwd) {
     return {};
   }
 }
+function parseNpmOutdated(data) {
+  if (!data)
+    return [];
+  return Object.entries(data).map(([name, v2]) => ({ name, current: v2.current ?? "", wanted: "", latest: v2.latest ?? "" })).filter((o2) => o2.latest && o2.current !== o2.latest);
+}
 var npmAdapter = {
   id: "npm",
   displayName: "npm",
@@ -6523,9 +6528,7 @@ var npmAdapter = {
   async outdated(cwd) {
     const r2 = await exec("npm", ["outdated", "--json"], { cwd, timeout: 12e4 });
     const data = safeJson(r2.stdout);
-    if (!data)
-      return [];
-    return Object.entries(data).map(([name, v2]) => ({ name, current: v2.current ?? "", wanted: "", latest: v2.latest ?? "" })).filter((o2) => o2.latest && o2.current !== o2.latest);
+    return parseNpmOutdated(data);
   },
   async install(cwd, name, version) {
     return exec("npm", ["install", `${name}@${version}`, "--save-exact"], { cwd, timeout: 3e5 });
@@ -6603,6 +6606,11 @@ async function readScripts3(cwd) {
     return {};
   }
 }
+function parsePnpmOutdated(data) {
+  if (!data)
+    return [];
+  return Object.entries(data).map(([name, v2]) => ({ name, current: v2.current ?? "", wanted: "", latest: v2.latest ?? "" })).filter((o2) => o2.latest && o2.current !== o2.latest);
+}
 var pnpmAdapter = {
   id: "pnpm",
   displayName: "pnpm",
@@ -6615,9 +6623,7 @@ var pnpmAdapter = {
   async outdated(cwd) {
     const r2 = await exec("pnpm", ["outdated", "--format", "json"], { cwd, timeout: 12e4 });
     const data = safeJson(r2.stdout);
-    if (!data)
-      return [];
-    return Object.entries(data).map(([name, v2]) => ({ name, current: v2.current ?? "", wanted: "", latest: v2.latest ?? "" })).filter((o2) => o2.latest && o2.current !== o2.latest);
+    return parsePnpmOutdated(data);
   },
   async install(cwd, name, version) {
     return exec("pnpm", ["add", `${name}@${version}`, "--save-exact"], { cwd, timeout: 3e5 });
@@ -6660,6 +6666,11 @@ async function hasPytestConfig(cwd) {
 
 // dist/engine/ecosystems/pip.js
 var REQ_FILE = "requirements.txt";
+function parsePipOutdated(data) {
+  if (!data)
+    return [];
+  return data.map((d2) => ({ name: d2.name, current: d2.version, wanted: "", latest: d2.latest_version }));
+}
 var pipAdapter = {
   id: "pip",
   displayName: "pip",
@@ -6672,9 +6683,7 @@ var pipAdapter = {
   async outdated(cwd) {
     const r2 = await exec("pip3", ["list", "--outdated", "--format", "json"], { cwd, timeout: 12e4 });
     const data = safeJson(r2.stdout);
-    if (!data)
-      return [];
-    return data.map((d2) => ({ name: d2.name, current: d2.version, wanted: "", latest: d2.latest_version }));
+    return parsePipOutdated(data);
   },
   async install(cwd, name, version) {
     const r2 = await exec("pip3", ["install", `${name}==${version}`], { cwd, timeout: 3e5 });
@@ -6744,6 +6753,11 @@ var poetryAdapter = {
 
 // dist/engine/ecosystems/uv.js
 var import_node_path7 = require("node:path");
+function parseUvOutdated(data) {
+  if (!data)
+    return [];
+  return data.map((d2) => ({ name: d2.name, current: d2.version, wanted: "", latest: d2.latest_version }));
+}
 var uvAdapter = {
   id: "uv",
   displayName: "uv",
@@ -6757,10 +6771,7 @@ var uvAdapter = {
     const r2 = await exec("uv", ["tree", "--outdated", "--depth", "1"], { cwd, timeout: 12e4 });
     const r22 = await exec("uv", ["pip", "list", "--outdated", "--format", "json"], { cwd, timeout: 12e4 });
     const data = safeJson(r22.stdout);
-    if (data) {
-      return data.map((d2) => ({ name: d2.name, current: d2.version, wanted: "", latest: d2.latest_version }));
-    }
-    return [];
+    return parseUvOutdated(data);
   },
   async install(cwd, name, version) {
     return exec("uv", ["add", `${name}==${version}`], { cwd, timeout: 3e5 });
@@ -6773,6 +6784,11 @@ var uvAdapter = {
 
 // dist/engine/ecosystems/pipenv.js
 var import_node_path8 = require("node:path");
+function parsePipenvOutdated(data) {
+  if (!data)
+    return [];
+  return data.map((d2) => ({ name: d2.name, current: d2.version, wanted: "", latest: d2.latest_version }));
+}
 var pipenvAdapter = {
   id: "pipenv",
   displayName: "Pipenv",
@@ -6788,9 +6804,7 @@ var pipenvAdapter = {
       timeout: 12e4
     });
     const data = safeJson(r2.stdout);
-    if (!data)
-      return [];
-    return data.map((d2) => ({ name: d2.name, current: d2.version, wanted: "", latest: d2.latest_version }));
+    return parsePipenvOutdated(data);
   },
   async install(cwd, name, version) {
     return exec("pipenv", ["install", `${name}==${version}`], { cwd, timeout: 3e5 });
@@ -7318,6 +7332,26 @@ var PKG_LINE = /\.package\(\s*url:\s*"([^"]+)"\s*,\s*from:\s*"([^"]+)"\s*\)/g;
 function repoNameFromUrl(url) {
   return url.replace(/\.git$/, "").split("/").pop() ?? url;
 }
+function parsePackageResolved(raw) {
+  const resolved = {};
+  const data = JSON.parse(raw);
+  for (const pin of data.pins ?? []) {
+    if (pin.identity && pin.state?.version)
+      resolved[pin.identity] = pin.state.version;
+  }
+  return resolved;
+}
+function parsePackageSwiftDeps(manifest, resolved) {
+  const out = [];
+  for (const m2 of manifest.matchAll(PKG_LINE)) {
+    const name = repoNameFromUrl(m2[1]).toLowerCase();
+    const current = resolved[name];
+    if (!current)
+      continue;
+    out.push({ name, current, url: m2[1] });
+  }
+  return out;
+}
 var swiftpmAdapter = {
   id: "swiftpm",
   displayName: "Swift Package Manager",
@@ -7328,28 +7362,20 @@ var swiftpmAdapter = {
     return pathExists((0, import_node_path17.join)(cwd, "Package.swift"));
   },
   async outdated(cwd) {
-    const resolvedPath = (0, import_node_path17.join)(cwd, "Package.resolved");
     let resolved = {};
     try {
-      const raw = await (0, import_promises7.readFile)(resolvedPath, "utf8");
-      const data = JSON.parse(raw);
-      for (const pin of data.pins ?? []) {
-        if (pin.identity && pin.state?.version)
-          resolved[pin.identity] = pin.state.version;
-      }
+      const raw = await (0, import_promises7.readFile)((0, import_node_path17.join)(cwd, "Package.resolved"), "utf8");
+      resolved = parsePackageResolved(raw);
     } catch {
       return [];
     }
     const manifest = await (0, import_promises7.readFile)((0, import_node_path17.join)(cwd, "Package.swift"), "utf8");
+    const deps = parsePackageSwiftDeps(manifest, resolved);
     const out = [];
-    for (const m2 of manifest.matchAll(PKG_LINE)) {
-      const name = repoNameFromUrl(m2[1]).toLowerCase();
-      const current = resolved[name];
-      if (!current)
-        continue;
-      const latest = await latestGitHubTag(m2[1]);
-      if (latest && latest !== current)
-        out.push({ name, current, wanted: "", latest });
+    for (const dep of deps) {
+      const latest = await latestGitHubTag(dep.url);
+      if (latest && latest !== dep.current)
+        out.push({ name: dep.name, current: dep.current, wanted: "", latest });
     }
     return out;
   },
@@ -7554,6 +7580,9 @@ function compareSemver2(a2, b2) {
   }
   return 0;
 }
+function parseElmDirectDeps(json) {
+  return json.dependencies?.direct ?? {};
+}
 var elmAdapter = {
   id: "elm",
   displayName: "Elm",
@@ -7567,7 +7596,7 @@ var elmAdapter = {
     try {
       const raw = await (0, import_promises10.readFile)((0, import_node_path20.join)(cwd, "elm.json"), "utf8");
       const json = JSON.parse(raw);
-      const deps = json.dependencies?.direct ?? {};
+      const deps = parseElmDirectDeps(json);
       const out = [];
       for (const [name, current] of Object.entries(deps)) {
         const latest = await latestOnElmPackages(name);
@@ -8024,6 +8053,7 @@ Fix the source code so build and tests pass. Call run_check to verify before fin
     }
   ];
   let fixed = false;
+  let budgetExceeded = false;
   let round = 0;
   for (round = 1; round <= opts.maxRounds; round++) {
     const remaining = opts.maxRounds - round + 1;
@@ -8034,6 +8064,11 @@ You have ${remaining} round(s) left. Wrap up and verify now.` : SYSTEM;
     usage.inputTokens += turn.usage.inputTokens;
     usage.outputTokens += turn.usage.outputTokens;
     messages.push({ role: "assistant", text: turn.text, toolCalls: turn.toolCalls });
+    if (opts.maxTokens !== void 0 && usage.inputTokens + usage.outputTokens >= opts.maxTokens) {
+      log(`round ${round}: hit token budget (${usage.inputTokens + usage.outputTokens}/${opts.maxTokens}) \u2014 stopping without a final fix, flagging for review`);
+      budgetExceeded = true;
+      break;
+    }
     if (turn.toolCalls.length === 0) {
       const r2 = await runChecks(pm, opts.cwd, checkOverrides);
       fixed = r2.ok;
@@ -8074,7 +8109,8 @@ You have ${remaining} round(s) left. Wrap up and verify now.` : SYSTEM;
     rounds: Math.min(round, opts.maxRounds),
     unverifiable: false,
     usage,
-    editedFiles: [...editedFiles]
+    editedFiles: [...editedFiles],
+    budgetExceeded
   };
 }
 
@@ -19265,6 +19301,8 @@ var RunError = class extends Error {
 function computeNeedsReview(input) {
   if (input.unverifiable)
     return true;
+  if (input.budgetExceeded)
+    return true;
   if (!input.neededFix)
     return false;
   return input.fixed && input.testFilesTouched.length > 0;
@@ -19361,6 +19399,7 @@ ${up.output}`);
     checkOverrides,
     provider,
     maxRounds: opts.maxRounds,
+    maxTokens: opts.maxTokens,
     dep: target.name,
     from,
     to,
@@ -19377,7 +19416,8 @@ ${up.output}`);
     unverifiable: false,
     neededFix: true,
     fixed: fix.fixed,
-    testFilesTouched: summary.testFilesTouched
+    testFilesTouched: summary.testFilesTouched,
+    budgetExceeded: fix.budgetExceeded
   });
   await maybeCommit(cwd, summary, fix.fixed);
   summary.durationMs = Date.now() - startedAt;
@@ -19572,6 +19612,7 @@ async function main() {
       baseURL: getInput("base-url") || void 0,
       apiKey: getInput("api-key") || void 0,
       maxRounds: parseInt(getInput("max-rounds") || "15", 10),
+      maxTokens: getInput("max-tokens") ? parseInt(getInput("max-tokens"), 10) : void 0,
       onLog: info
     });
   } catch (err) {

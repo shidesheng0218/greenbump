@@ -10,6 +10,8 @@ export interface FixResult {
   unverifiable: boolean;
   usage: { inputTokens: number; outputTokens: number };
   editedFiles: string[];
+  /** true when the loop stopped early because it hit `maxTokens`, not because it ran out of rounds */
+  budgetExceeded: boolean;
 }
 
 export interface FixDep {
@@ -25,6 +27,8 @@ export interface FixOptions {
   checkOverrides?: CheckOverrides;
   provider: Provider;
   maxRounds: number;
+  /** hard cap on total (input + output) tokens spent across the whole loop; unset = no cap */
+  maxTokens?: number;
   /** name of the upgraded dependency */
   dep: string;
   from: string;
@@ -298,6 +302,7 @@ Fix the source code so build and tests pass. Call run_check to verify before fin
   ];
 
   let fixed = false;
+  let budgetExceeded = false;
   let round = 0;
 
   for (round = 1; round <= opts.maxRounds; round++) {
@@ -309,6 +314,14 @@ Fix the source code so build and tests pass. Call run_check to verify before fin
     usage.outputTokens += turn.usage.outputTokens;
 
     messages.push({ role: "assistant", text: turn.text, toolCalls: turn.toolCalls });
+
+    if (opts.maxTokens !== undefined && usage.inputTokens + usage.outputTokens >= opts.maxTokens) {
+      log(
+        `round ${round}: hit token budget (${usage.inputTokens + usage.outputTokens}/${opts.maxTokens}) — stopping without a final fix, flagging for review`,
+      );
+      budgetExceeded = true;
+      break;
+    }
 
     if (turn.toolCalls.length === 0) {
       // Model stopped without a tool call — verify once and finish.
@@ -355,5 +368,6 @@ Fix the source code so build and tests pass. Call run_check to verify before fin
     unverifiable: false,
     usage,
     editedFiles: [...editedFiles],
+    budgetExceeded,
   };
 }

@@ -12,6 +12,13 @@ const REQ_FILE = "requirements.txt";
  * already activated the right venv (same assumption `pip install` itself
  * makes). This is a known limitation vs. lockfile-based ecosystems.
  */
+export function parsePipOutdated(
+  data: Array<{ name: string; version: string; latest_version: string }> | null,
+): Outdated[] {
+  if (!data) return [];
+  return data.map((d) => ({ name: d.name, current: d.version, wanted: "", latest: d.latest_version }));
+}
+
 export const pipAdapter: EcosystemAdapter = {
   id: "pip",
   displayName: "pip",
@@ -26,8 +33,7 @@ export const pipAdapter: EcosystemAdapter = {
   async outdated(cwd): Promise<Outdated[]> {
     const r = await exec("pip3", ["list", "--outdated", "--format", "json"], { cwd, timeout: 120_000 });
     const data = safeJson<Array<{ name: string; version: string; latest_version: string }>>(r.stdout);
-    if (!data) return [];
-    return data.map((d) => ({ name: d.name, current: d.version, wanted: "", latest: d.latest_version }));
+    return parsePipOutdated(data);
   },
 
   async install(cwd, name, version) {

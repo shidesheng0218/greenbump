@@ -45,6 +45,9 @@ inputs:
     description: "Max fix-loop rounds (caps token spend)."
     required: false
     default: "15"
+  max-tokens:
+    description: "Hard cap on total tokens spent by the fix loop; stops and flags the PR for review on overrun."
+    required: false
   base-branch:
     description: "Base branch for the PR (default: the triggering branch)."
     required: false

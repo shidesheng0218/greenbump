@@ -39,10 +39,12 @@ export interface EcosystemAdapter {
   /** best-effort guess at how to build/test this project; either may be omitted */
   defaultCheckCommands(cwd: string): Promise<CheckCommands>;
   /**
-   * Verified end-to-end against a real project on the maintainer's machine
-   * (detect → upgrade → break → AI fix). False means "implemented per
-   * official docs, not verified live" — surfaced to users in the docs so
-   * expectations stay honest.
+   * Self-reported by the adapter's author: true means "I manually ran the
+   * detect → outdated → install → build/test chain against a real project
+   * on my own machine at least once." It is NOT re-checked by CI and is not
+   * a guarantee — treat it as "implemented per official docs and given one
+   * manual smoke test," not an automated verification badge. False means
+   * "implemented per official docs only, never run against a real project."
    */
   verified: boolean;
 }

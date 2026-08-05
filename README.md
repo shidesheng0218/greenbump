@@ -69,7 +69,9 @@ npx greenbump
 
 greenbump auto-detects the ecosystem from your project's lockfile/manifest. Run `greenbump --list-ecosystems` for the current list.
 
-**Verified end-to-end** against a real toolchain (detect → outdated → pin → install/build): npm, Yarn, pnpm, pip, Poetry, uv, Pipenv, Cargo, Go modules, Bundler, Composer, Gradle, Maven, NuGet (.NET), Mix (Hex), Pub (Dart/Flutter), Swift Package Manager, CocoaPods, Conan (C/C++), Elm.
+**"Verified" (self-reported, manually smoke-tested once by the maintainer, not CI-checked):** npm, Yarn, pnpm, pip, Poetry, uv, Pipenv, Cargo, Go modules, Bundler, Composer, Gradle, Maven, NuGet (.NET), Mix (Hex), Pub (Dart/Flutter), Swift Package Manager, CocoaPods, Conan (C/C++), Elm.
+
+"Verified" here means the maintainer personally ran the detect → outdated → install → build/test chain against a real project for that ecosystem at least once — it is **not** an automated guarantee, and CI does not re-run every real toolchain on every change (that would require installing 20 separate language runtimes and package managers). The `verified` field is self-reported per adapter in [`src/engine/ecosystems/types.ts`](src/engine/ecosystems/types.ts); parser logic for each ecosystem is unit-tested (see [`parsers.test.ts`](src/engine/ecosystems/parsers.test.ts)), but the underlying CLI tools themselves are not exercised in CI.
 
 Please [report an issue](https://github.com/shidesheng0218/greenbump/issues) if one of these doesn't work as expected on your machine — real-world edge cases (unusual manifest styles, less common CLI flags) are the best signal for tightening these adapters further.
 

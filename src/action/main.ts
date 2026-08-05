@@ -46,6 +46,7 @@ async function main(): Promise<void> {
       baseURL: getInput("base-url") || undefined,
       apiKey: getInput("api-key") || undefined,
       maxRounds: parseInt(getInput("max-rounds") || "15", 10),
+      maxTokens: getInput("max-tokens") ? parseInt(getInput("max-tokens"), 10) : undefined,
       onLog: info,
     });
   } catch (err) {

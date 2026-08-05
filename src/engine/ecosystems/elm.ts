@@ -29,6 +29,10 @@ function compareSemver(a: string, b: string): number {
   return 0;
 }
 
+export function parseElmDirectDeps(json: ElmJson): Record<string, string> {
+  return json.dependencies?.direct ?? {};
+}
+
 export const elmAdapter: EcosystemAdapter = {
   id: "elm",
   displayName: "Elm",
@@ -44,7 +48,7 @@ export const elmAdapter: EcosystemAdapter = {
     try {
       const raw = await readFile(join(cwd, "elm.json"), "utf8");
       const json = JSON.parse(raw) as ElmJson;
-      const deps = json.dependencies?.direct ?? {};
+      const deps = parseElmDirectDeps(json);
       const out: Outdated[] = [];
       for (const [name, current] of Object.entries(deps)) {
         const latest = await latestOnElmPackages(name);
