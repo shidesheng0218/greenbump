@@ -83,8 +83,12 @@ test("runChecks: --build-cmd/--test-cmd overrides win over the adapter's own scr
 test("runChecks: truncates output that exceeds the max size, keeping the tail", async () => {
   await withTmpDir(async (dir) => {
     // Write >16_000 chars of stdout before failing, then check only the end survives.
+    // Use process.exitCode (not process.exit()) so Node drains stdout before exiting —
+    // stdout writes to a pipe are asynchronous, and a forced process.exit() right after
+    // thousands of console.log calls can truncate the buffer before it's flushed. That
+    // race is invisible on a local TTY but reliably bites in CI's piped, headless stdio.
     const script =
-      "for (let i = 0; i < 2000; i++) console.log('line-' + i); console.error('MARKER_END'); process.exit(1)";
+      "for (let i = 0; i < 2000; i++) console.log('line-' + i); console.error('MARKER_END'); process.exitCode = 1;";
     await writePkg(dir, { build: `node -e "${script.replace(/"/g, '\\"')}"` });
     const r = await runChecks("npm", dir);
     assert.equal(r.ok, false);
