@@ -87,8 +87,11 @@ test("runChecks: truncates output that exceeds the max size, keeping the tail", 
     // stdout writes to a pipe are asynchronous, and a forced process.exit() right after
     // thousands of console.log calls can truncate the buffer before it's flushed. That
     // race is invisible on a local TTY but reliably bites in CI's piped, headless stdio.
-    const script =
-      "for (let i = 0; i < 2000; i++) console.log('line-' + i); console.error('MARKER_END'); process.exitCode = 1;";
+    // MARKER_END also goes through console.log (stdout), not console.error (stderr) —
+    // exec.ts appends to `combined` from two independent stream 'data' listeners, so
+    // interleaving order across stdout/stderr is not guaranteed; keeping the marker on
+    // the same stream as the 2000 lines guarantees it lands after them.
+    const script = "for (let i = 0; i < 2000; i++) console.log('line-' + i); console.log('MARKER_END'); process.exitCode = 1;";
     await writePkg(dir, { build: `node -e "${script.replace(/"/g, '\\"')}"` });
     const r = await runChecks("npm", dir);
     assert.equal(r.ok, false);
