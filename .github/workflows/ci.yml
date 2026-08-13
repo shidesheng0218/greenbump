@@ -46,7 +46,16 @@ jobs:
         if: matrix.ecosystem.name == 'cargo'
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Setup ecosystem
+      - name: Setup npm ecosystem
+        if: matrix.ecosystem.name == 'npm'
+        run: ${{ matrix.ecosystem.setup }}
+
+      - name: Setup pip ecosystem
+        if: matrix.ecosystem.name == 'pip'
+        run: ${{ matrix.ecosystem.setup }}
+
+      - name: Setup cargo ecosystem
+        if: matrix.ecosystem.name == 'cargo'
         run: ${{ matrix.ecosystem.setup }}
 
       - name: Run detect command
