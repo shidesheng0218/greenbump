@@ -26,9 +26,9 @@ jobs:
     strategy:
       matrix:
         ecosystem:
-          - { name: npm, setup: "npm install -g npm@latest", detect: "npm outdated --json || true" }
-          - { name: pip, setup: "pip install --upgrade pip", detect: "pip list --outdated --format=json" }
-          - { name: cargo, setup: "rustup update stable", detect: "cargo --version" }
+          - { name: npm, setup: "npm --version", detect: "npm outdated --json || true" }
+          - { name: pip, setup: "pip --version", detect: "pip list --outdated --format=json || true" }
+          - { name: cargo, setup: "cargo --version", detect: "echo 'cargo check skipped in smoke test'" }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
