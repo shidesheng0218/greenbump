@@ -3,6 +3,19 @@
 All notable changes to this project are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.2.1]
+
+### Added
+- `--scan` flag: list outdated dependencies without upgrading (read-only mode)
+- Risk boundaries documentation in README (when to use greenbump vs manual review)
+- Competitor comparison table (vs Dependabot, Renovate, Migratowl)
+- CI smoke tests for real toolchains (npm, pip, cargo)
+- Options table updated with `--scan`, `--all`, `--group`, `--max-tokens`
+
+### Changed
+- GitHub Action branding icon from `arrow-up-circle` to `refresh-cw`
+- npm package excludes test files via `.npmignore` (reduced from 116 to 114 files)
+
 ## [0.2.0]
 
 ### Added
