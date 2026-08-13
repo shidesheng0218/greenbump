@@ -1,0 +1,22 @@
+# Test files
+*.test.js
+*.test.js.map
+*.test.ts
+
+# Source files (already compiled to dist/)
+src/
+
+# TypeScript config
+tsconfig.json
+tsconfig.*.json
+
+# CI/CD
+.github/
+
+# Development
+node_modules/
+*.log
+.DS_Store
+
+# Documentation (keep action.yml for GitHub Actions)
+docs/

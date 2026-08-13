@@ -1,7 +1,7 @@
 name: "greenbump"
 description: "Upgrade a dependency and let an AI agent fix the code it breaks, then open a green PR."
 branding:
-  icon: "arrow-up-circle"
+  icon: "refresh-cw"
   color: "green"
 inputs:
   anthropic-api-key:

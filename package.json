@@ -6,11 +6,6 @@
   "bin": {
     "greenbump": "dist/cli.js"
   },
-  "files": [
-    "dist",
-    "action-dist",
-    "action.yml"
-  ],
   "engines": {
     "node": ">=20"
   },
