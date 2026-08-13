@@ -10,6 +10,8 @@ import { formatDuration, printSummaryBox, printBatchSummary } from "./format.js"
 import { listEcosystems } from "./engine/ecosystems/index.js";
 import { exitCodeFor, overallExitCode } from "./exitcode.js";
 import { buildReport, writeReport } from "./report.js";
+import { detectOutdatedAll, WORKSPACE_ROOT } from "./engine/workspace.js";
+import { detectPackageManager } from "./engine/pm.js";
 
 const program = new Command();
 
@@ -39,6 +41,7 @@ program
   .option("--group <name>", "combine multiple deps named on the command line into one branch/PR")
   .option("--fail-fast", "abort a batch on the first hard failure instead of continuing")
   .option("--workspace <path>", "disambiguate a dep that's outdated at different versions in multiple workspace packages")
+  .option("--scan", "list outdated dependencies without upgrading (read-only mode)")
   .action(async (deps, opts) => {
     if (opts.listProviders) {
       console.log("Built-in provider presets:\n" + listProviders());
@@ -49,6 +52,26 @@ program
 
     if (opts.listEcosystems) {
       console.log("Supported dependency ecosystems:\n" + listEcosystems());
+      process.exit(0);
+    }
+
+    if (opts.scan) {
+      const cwd = opts.cwd ? resolve(opts.cwd) : process.cwd();
+      const pm = opts.ecosystem || await detectPackageManager(cwd);
+      if (!pm) {
+        console.error(pc.red("✗ Could not detect package manager. Use --ecosystem to specify one."));
+        process.exit(1);
+      }
+      const outdated = await detectOutdatedAll(pm, cwd);
+      if (outdated.length === 0) {
+        console.log(pc.green("✓ All dependencies are up to date."));
+        process.exit(0);
+      }
+      console.log(pc.bold(`Found ${outdated.length} outdated dependencies:\n`));
+      for (const o of outdated) {
+        const loc = o.workspacePath === WORKSPACE_ROOT ? "(root)" : o.workspacePath;
+        console.log(`  ${pc.cyan(o.name)} ${pc.dim(o.current)} → ${pc.green(o.latest)} ${pc.dim(`[${loc}]`)}`);
+      }
       process.exit(0);
     }
 

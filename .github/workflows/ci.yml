@@ -19,3 +19,43 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+
+  smoke-test:
+    name: Smoke test real toolchains
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        ecosystem:
+          - { name: npm, setup: "npm install -g npm@latest", detect: "npm outdated --json || true" }
+          - { name: pip, setup: "pip install --upgrade pip", detect: "pip list --outdated --format=json" }
+          - { name: cargo, setup: "rustup update stable", detect: "cargo --version" }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Python
+        if: matrix.ecosystem.name == 'pip'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Setup Rust
+        if: matrix.ecosystem.name == 'cargo'
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup ecosystem
+        run: ${{ matrix.ecosystem.setup }}
+
+      - name: Run detect command
+        run: ${{ matrix.ecosystem.detect }}
+
+      - name: Build greenbump CLI
+        run: |
+          npm ci
+          npm run build
+
+      - name: Test greenbump --list-ecosystems
+        run: node dist/cli.js --list-ecosystems | grep -q "${{ matrix.ecosystem.name }}"

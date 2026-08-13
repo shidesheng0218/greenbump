@@ -34,6 +34,40 @@ npx greenbump react
 - **Safe by default.** Works on a fresh git branch, never auto-merges, never edits your lockfile to cheat, never deletes tests to go green.
 - **Bounded cost.** The fix loop is capped (`--max-rounds`) so a hard upgrade can't run away with your tokens.
 
+## When to use greenbump (and when not to)
+
+**✓ Great for:**
+- Minor/patch upgrades with small breaking changes (renamed exports, updated function signatures)
+- Dependency chains where the upgrade path is documented in changelogs
+- Projects with fast, reliable build + test suites that catch regressions
+
+**⚠️ Use caution or manual review:**
+- Major version jumps with architectural changes (e.g., Angular 2 → 3, React 15 → 16)
+- Upgrades that require coordinated changes across multiple dependencies
+- Security patches where you need to audit the fix, not just make tests pass
+- Projects without tests — greenbump can only verify what your suite checks
+
+**✗ Not recommended:**
+- Upgrades that break core framework assumptions (e.g., async/await refactors, build system migrations)
+- Dependencies with runtime-only failures your tests don't cover
+- Scenarios where "tests pass" doesn't mean "the app works" (missing integration tests, flaky suites)
+
+greenbump works best as a first pass on straightforward upgrades. Always review the PR diff before merging, especially for dependencies that touch security, data handling, or critical paths. Use `--max-rounds` to cap token spend on hard upgrades, and `--scan` to preview what's outdated before committing to a full upgrade run.
+
+## How is greenbump different?
+
+| Feature | greenbump | Dependabot | Renovate | Migratowl |
+|---------|-----------|------------|----------|-----------|
+| **Auto-fix breaking changes** | ✓ (LLM edits source) | ✗ (version bump only) | ✗ (version bump only) | ✓ (LLM + sandbox) |
+| **Multi-ecosystem** | ✓ (20+ ecosystems) | ✓ | ✓ | ✗ (Python only) |
+| **Model flexibility** | ✓ (Claude, DeepSeek, OpenAI, custom) | N/A | N/A | ✗ (Claude only) |
+| **Verification** | Your build + tests | GitHub's CI (after PR) | CI after PR | Sandbox + your tests |
+| **Cost model** | Your API key (pay per fix) | Free (GitHub-hosted) | Free (self-host or SaaS) | Your API key |
+| **Batch upgrades** | ✓ (`--all`) | ✓ | ✓ | ✗ |
+| **Best for** | Fast iteration on minor/patch bumps with simple breaking changes | No-touch version bumps, large fleets | Advanced scheduling, auto-merge rules | High-risk major upgrades needing sandbox isolation |
+
+**greenbump is the only tool that combines multi-ecosystem support + actual code fixing + model flexibility.** Dependabot and Renovate excel at *detecting* outdated dependencies and *opening* PRs, but stop there — you still write the fix. Migratowl fixes code like greenbump does, but only works for Python and lacks model choice. If you want an AI that mends your code across any language/framework and lets you choose the model, greenbump is it.
+
 ## Install / Use
 
 ```bash
@@ -62,6 +96,10 @@ npx greenbump
 | `--provider <name>` | Model provider preset (`anthropic`, `openai`, `deepseek`, `groq`, …). |
 | `--model <model>` | Model id for the fix agent (default: per provider). |
 | `--max-rounds <n>` | Cap fix-loop rounds / token spend (default: `15`). |
+| `--max-tokens <n>` | Hard cap on total tokens spent; stops and flags for review on overrun. |
+| `--scan` | List outdated dependencies without upgrading (read-only mode). |
+| `--all` | Upgrade every outdated dependency found. |
+| `--group <name>` | Combine multiple deps into one branch/PR. |
 | `--no-git` | Operate in place instead of on a new branch. |
 | `--pr-body` | Print a ready-to-paste PR body. |
 
