@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1200, height=630">
+    <title>greenbump Cover - Green Theme</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 1200px;
+            height: 630px;
+            background: linear-gradient(135deg, #a8e6cf 0%, #4CAF50 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            color: #1B5E20;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* 背景装饰 */
+        .bg-pattern {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            opacity: 0.1;
+            background-image:
+                radial-gradient(circle at 20% 50%, white 2px, transparent 2px),
+                radial-gradient(circle at 80% 80%, white 2px, transparent 2px),
+                radial-gradient(circle at 40% 20%, white 3px, transparent 3px);
+            background-size: 100px 100px, 150px 150px, 200px 200px;
+        }
+
+        .content {
+            z-index: 10;
+            text-align: center;
+        }
+
+        .logo {
+            font-size: 140px;
+            margin-bottom: 10px;
+            filter: drop-shadow(0 8px 16px rgba(27, 94, 32, 0.3));
+        }
+
+        .title {
+            font-size: 85px;
+            font-weight: 900;
+            margin-bottom: 25px;
+            letter-spacing: -2px;
+            color: #1B5E20;
+            text-shadow: 0 2px 10px rgba(255, 255, 255, 0.5);
+        }
+
+        .subtitle {
+            font-size: 36px;
+            margin-bottom: 50px;
+            font-weight: 600;
+            color: #2E7D32;
+            letter-spacing: 0.5px;
+        }
+
+        .demo-flow {
+            display: flex;
+            align-items: center;
+            gap: 30px;
+            font-size: 28px;
+            font-weight: 700;
+            background: rgba(255, 255, 255, 0.6);
+            padding: 20px 40px;
+            border-radius: 60px;
+            backdrop-filter: blur(10px);
+            border: 3px solid rgba(255, 255, 255, 0.8);
+            box-shadow: 0 8px 32px rgba(27, 94, 32, 0.2);
+        }
+
+        .step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .step-icon {
+            font-size: 48px;
+        }
+
+        .step-label {
+            font-size: 20px;
+            color: #2E7D32;
+        }
+
+        .arrow {
+            font-size: 40px;
+            color: #4CAF50;
+        }
+
+        .badge {
+            position: absolute;
+            top: 40px;
+            right: 40px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 12px 28px;
+            border-radius: 50px;
+            font-size: 22px;
+            font-weight: 700;
+            color: #2E7D32;
+            border: 2px solid #4CAF50;
+            box-shadow: 0 4px 16px rgba(27, 94, 32, 0.2);
+        }
+
+        .footer {
+            position: absolute;
+            bottom: 35px;
+            font-size: 20px;
+            font-weight: 600;
+            color: #2E7D32;
+            letter-spacing: 3px;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-pattern"></div>
+
+    <div class="badge">开源免费</div>
+
+    <div class="content">
+        <div class="logo">🌱</div>
+        <div class="title">greenbump</div>
+        <div class="subtitle">让 AI 自动修复依赖升级的破坏性变更</div>
+
+        <div class="demo-flow">
+            <div class="step">
+                <div class="step-icon">❌</div>
+                <div class="step-label">CI 失败</div>
+            </div>
+
+            <div class="arrow">→</div>
+
+            <div class="step">
+                <div class="step-icon">🤖</div>
+                <div class="step-label">AI 修复</div>
+            </div>
+
+            <div class="arrow">→</div>
+
+            <div class="step">
+                <div class="step-icon">✅</div>
+                <div class="step-label">自动通过</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">npm · pip · cargo · maven · 20+ ECOSYSTEMS</div>
+</body>
+</html>
