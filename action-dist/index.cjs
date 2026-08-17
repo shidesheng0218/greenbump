@@ -19295,6 +19295,231 @@ ${listProviders()}`);
   return new OpenAICompatProvider(presetName, apiKey, baseURL, model);
 }
 
+// dist/engine/verify.js
+var import_node_child_process2 = require("node:child_process");
+var import_node_util = require("node:util");
+var import_node_path22 = require("node:path");
+var execAsync = (0, import_node_util.promisify)(import_node_child_process2.exec);
+async function runStaticAnalysis(cwd, options = {}) {
+  const { checkTypes = true, checkLint = true, strictLint = false } = options;
+  const results = [];
+  if (checkTypes && await hasTsConfig(cwd)) {
+    try {
+      const { stdout, stderr } = await execAsync("npx tsc --noEmit", {
+        cwd,
+        timeout: 6e4
+        // 1 minute timeout
+      });
+      results.push({
+        passed: true,
+        stage: "types",
+        output: stdout + stderr
+      });
+    } catch (err) {
+      const output = err.stdout + err.stderr;
+      results.push({
+        passed: false,
+        stage: "types",
+        output,
+        warnings: parseTypeErrors(output)
+      });
+    }
+  }
+  if (checkLint && await hasEslintConfig(cwd)) {
+    try {
+      const { stdout, stderr } = await execAsync("npx eslint . --ext .ts,.tsx,.js,.jsx --format compact", {
+        cwd,
+        timeout: 6e4
+      });
+      results.push({
+        passed: true,
+        stage: "lint",
+        output: stdout + stderr
+      });
+    } catch (err) {
+      const output = err.stdout + err.stderr;
+      results.push({
+        passed: strictLint ? false : true,
+        // Lint warnings don't fail by default
+        stage: "lint",
+        output,
+        warnings: parseLintWarnings(output)
+      });
+    }
+  }
+  return results;
+}
+async function hasTsConfig(cwd) {
+  return await pathExists((0, import_node_path22.join)(cwd, "tsconfig.json"));
+}
+async function hasEslintConfig(cwd) {
+  const configs = [
+    ".eslintrc.js",
+    ".eslintrc.cjs",
+    ".eslintrc.json",
+    ".eslintrc.yml",
+    ".eslintrc.yaml"
+  ];
+  for (const cfg of configs) {
+    if (await pathExists((0, import_node_path22.join)(cwd, cfg)))
+      return true;
+  }
+  try {
+    const pkgPath = (0, import_node_path22.join)(cwd, "package.json");
+    if (await pathExists(pkgPath)) {
+      const pkg = JSON.parse(await import("node:fs/promises").then((fs2) => fs2.readFile(pkgPath, "utf8")));
+      if (pkg.eslintConfig)
+        return true;
+    }
+  } catch {
+  }
+  return false;
+}
+function parseTypeErrors(output) {
+  const lines = output.split("\n");
+  const errors = [];
+  for (const line of lines) {
+    if (/error TS\d+:/.test(line)) {
+      const match = line.match(/^(.+?\.\w+)\(\d+,\d+\): (.+)$/);
+      if (match) {
+        errors.push(`${match[1]}: ${match[2]}`);
+      } else {
+        errors.push(line.trim());
+      }
+    }
+  }
+  return errors.slice(0, 10);
+}
+function parseLintWarnings(output) {
+  const lines = output.split("\n");
+  const warnings = [];
+  for (const line of lines) {
+    if (line.includes("Error") || line.includes("Warning")) {
+      warnings.push(line.trim());
+    }
+  }
+  return warnings.slice(0, 10);
+}
+
+// dist/engine/change-detector.js
+var import_node_child_process3 = require("node:child_process");
+var import_node_util2 = require("node:util");
+var execAsync2 = (0, import_node_util2.promisify)(import_node_child_process3.exec);
+async function detectSuspiciousChanges(cwd) {
+  const changes = [];
+  try {
+    const { stdout: diff } = await execAsync2("git diff HEAD", { cwd });
+    if (!diff.trim())
+      return [];
+    const testFileChanges = detectTestFileChanges(diff);
+    changes.push(...testFileChanges);
+    const largeDeletions = detectLargeDeletions(diff);
+    changes.push(...largeDeletions);
+    const commentedTests = detectCommentedTests(diff);
+    changes.push(...commentedTests);
+    const removedTests = detectRemovedTests(diff);
+    changes.push(...removedTests);
+  } catch (err) {
+  }
+  return changes;
+}
+function detectTestFileChanges(diff) {
+  const changes = [];
+  const testFilePattern = /\.(test|spec)\.(ts|js|tsx|jsx)$/;
+  const fileHeaderPattern = /^diff --git a\/(.+?) b\/(.+?)$/gm;
+  let match;
+  while ((match = fileHeaderPattern.exec(diff)) !== null) {
+    const filePath = match[2];
+    if (testFilePattern.test(filePath)) {
+      changes.push({
+        type: "test-modified",
+        file: filePath,
+        description: "Test file was modified during fix loop",
+        severity: "critical"
+      });
+    }
+  }
+  return changes;
+}
+function detectLargeDeletions(diff) {
+  const changes = [];
+  const fileDiffs = diff.split(/^diff --git /m).slice(1);
+  for (const fileDiff of fileDiffs) {
+    const fileMatch = fileDiff.match(/^a\/(.+?) b\/(.+?)$/m);
+    if (!fileMatch)
+      continue;
+    const filePath = fileMatch[2];
+    const lines = fileDiff.split("\n");
+    let deletions = 0;
+    for (const line of lines) {
+      if (line.startsWith("-") && !line.startsWith("---")) {
+        deletions++;
+      }
+    }
+    if (deletions > 50) {
+      changes.push({
+        type: "large-deletion",
+        file: filePath,
+        description: `${deletions} lines deleted (possible over-aggressive fix)`,
+        severity: "warning"
+      });
+    }
+  }
+  return changes;
+}
+function detectCommentedTests(diff) {
+  const changes = [];
+  const lines = diff.split("\n");
+  for (let i2 = 0; i2 < lines.length - 1; i2++) {
+    const prevLine = lines[i2];
+    const currLine = lines[i2 + 1];
+    if (prevLine.startsWith("-") && /\b(it|test|describe)\(/.test(prevLine) && currLine.startsWith("+") && (/^[+]\s*(\/\/|\/\*)/.test(currLine) || currLine.includes("// it(") || currLine.includes("// test(") || currLine.includes("/* it(") || currLine.includes("/* test("))) {
+      const fileContext = findFileContext(diff, i2);
+      changes.push({
+        type: "test-commented",
+        file: fileContext || "unknown",
+        description: "Test case appears to have been commented out",
+        severity: "critical"
+      });
+    }
+  }
+  return changes;
+}
+function detectRemovedTests(diff) {
+  const changes = [];
+  const lines = diff.split("\n");
+  let removedTestCount = 0;
+  let currentFile = "unknown";
+  for (const line of lines) {
+    const fileMatch = line.match(/^diff --git a\/(.+?) b\/(.+?)$/);
+    if (fileMatch) {
+      currentFile = fileMatch[2];
+      removedTestCount = 0;
+    }
+    if (line.startsWith("-") && !line.startsWith("---") && /\b(it|test)\s*\(/.test(line)) {
+      removedTestCount++;
+    }
+  }
+  if (removedTestCount > 0) {
+    changes.push({
+      type: "test-removed",
+      file: currentFile,
+      description: `${removedTestCount} test case(s) were deleted`,
+      severity: "critical"
+    });
+  }
+  return changes;
+}
+function findFileContext(diff, lineIndex) {
+  const lines = diff.split("\n");
+  for (let i2 = lineIndex; i2 >= 0; i2--) {
+    const match = lines[i2].match(/^diff --git a\/(.+?) b\/(.+?)$/);
+    if (match)
+      return match[2];
+  }
+  return null;
+}
+
 // dist/engine/run.js
 var RunError = class extends Error {
 };
@@ -19412,13 +19637,28 @@ ${up.output}`);
   summary.usage = fix.usage;
   summary.editedFiles = fix.editedFiles;
   summary.testFilesTouched = fix.editedFiles.filter((f2) => /(^|\/)(test|tests|__tests__|spec)(\/|\.)|\.(test|spec)\./i.test(f2));
+  log("running static analysis\u2026");
+  const staticResults = await runStaticAnalysis(cwd, { strictLint: false });
+  const typesFailed = staticResults.some((r2) => r2.stage === "types" && !r2.passed);
+  if (typesFailed) {
+    log("\u26A0\uFE0F  TypeScript type check failed after fix");
+    summary.needsReview = true;
+    summary.staticAnalysisWarnings = staticResults.filter((r2) => !r2.passed).flatMap((r2) => r2.warnings || []);
+  }
+  const suspiciousChanges = await detectSuspiciousChanges(cwd);
+  const criticalChanges = suspiciousChanges.filter((c2) => c2.severity === "critical");
+  if (criticalChanges.length > 0) {
+    log("\u26A0\uFE0F  Suspicious changes detected (test modifications, large deletions)");
+    summary.needsReview = true;
+    summary.suspiciousChanges = suspiciousChanges.map((c2) => `${c2.type}: ${c2.file} - ${c2.description}`);
+  }
   summary.needsReview = computeNeedsReview({
     unverifiable: false,
     neededFix: true,
     fixed: fix.fixed,
     testFilesTouched: summary.testFilesTouched,
     budgetExceeded: fix.budgetExceeded
-  });
+  }) || summary.needsReview;
   await maybeCommit(cwd, summary, fix.fixed);
   summary.durationMs = Date.now() - startedAt;
   return summary;
