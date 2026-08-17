@@ -7,6 +7,8 @@
 [![npm version](https://img.shields.io/npm/v/greenbump.svg)](https://www.npmjs.com/package/greenbump)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![CI Status](https://github.com/shidesheng0218/greenbump/workflows/CI/badge.svg)](https://github.com/shidesheng0218/greenbump/actions)
+[![Node >=20](https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg)](package.json)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-ff69b4.svg)](CONTRIBUTING.md)
 
 Dependabot and Renovate bump your version numbers — then hand you a red PR and walk away.  
 **greenbump** upgrades the dependency **and lets an AI agent fix the code the upgrade breaks**,  
@@ -18,7 +20,44 @@ looping on your real build and tests until they're **green** again.
 
 ---
 
+## 📑 Table of Contents
+
+- [Demo](#-demo)
+- [Before / After](#-before--after-a-real-fix)
+- [Features](#-features)
+- [Comparison](#-comparison)
+- [Install / Use](#-install--use)
+- [CLI Options](#-cli-options)
+- [Supported Ecosystems](#-supported-ecosystems)
+- [How It Works](#-how-it-works)
+- [Architecture](#-architecture)
+- [GitHub Action](#-github-action)
+- [When to Use greenbump](#-when-to-use-greenbump)
+- [Security & Privacy](#-security--privacy)
+- [Roadmap](#️-roadmap)
+
+---
+
 ## 🎬 Demo
+
+### Basic Upgrade Flow
+
+Watch greenbump detect an outdated dependency, upgrade it, and automatically fix breaking changes:
+
+<div align="center">
+  <img src="docs/assets/demo-basic.gif" alt="greenbump basic upgrade demo" width="800" />
+</div>
+
+### Sandbox Mode with Database Services
+
+See greenbump run tests in isolated Docker containers with database services:
+
+<div align="center">
+  <img src="docs/assets/demo-sandbox.gif" alt="greenbump sandbox mode demo" width="800" />
+</div>
+
+<details>
+<summary><b>📝 Text Version</b></summary>
 
 ```bash
 npx greenbump react
@@ -46,6 +85,34 @@ npx greenbump react
   ✓ TypeScript types valid
   ✓ No suspicious changes detected
 ```
+
+</details>
+
+---
+
+## 🔧 Before / After: A Real Fix
+
+React 19 removed `ReactDOM.render`. Here's the actual diff greenbump's agent produced to fix it —
+no manual intervention required:
+
+```diff
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -1,10 +1,10 @@
+-import ReactDOM from 'react-dom';
++import { createRoot } from 'react-dom/client';
+ import App from './App';
+
+-ReactDOM.render(
+-  <App />,
+-  document.getElementById('root')
+-);
++const root = createRoot(document.getElementById('root')!);
++root.render(<App />);
+```
+
+The agent read the failing test output, recognized the removed API, rewrote the call site,
+then re-ran your test suite to confirm the fix — all inside the fix loop shown above.
 
 ---
 
@@ -315,6 +382,51 @@ graph TD
    - Compare build time, test time, bundle size
    - Flag regressions (>20% slower build, >15% larger bundle)
 9. **💾 Commit** the changes and output PR body
+
+---
+
+## 🏗️ Architecture
+
+```mermaid
+flowchart LR
+    subgraph CLI["🌱 greenbump CLI"]
+        A1[Ecosystem Adapters]
+        A2[Fix-Loop Engine]
+        A3[Verification Pipeline]
+        A4[Git / PR Layer]
+    end
+
+    subgraph Adapters["🌍 20+ Ecosystems"]
+        E1[npm / yarn / pnpm]
+        E2[pip / poetry / uv]
+        E3[cargo]
+        E4[maven / gradle]
+        E5[...more]
+    end
+
+    subgraph Agent["🤖 AI Provider"]
+        M1[Anthropic]
+        M2[OpenAI]
+        M3[DeepSeek / Groq / custom]
+    end
+
+    subgraph Sandbox["🐳 Optional Sandbox"]
+        S1[Docker Container]
+        S2[Postgres / MySQL / Redis / Mongo]
+    end
+
+    A1 --- Adapters
+    A2 -- "tool calls" --> Agent
+    A3 -- "isolated run" --> Sandbox
+    A4 --> GH[GitHub / GitLab PR]
+
+    CLI --> Adapters
+    CLI --> Agent
+    CLI --> Sandbox
+```
+
+Each layer is independently swappable: pick any ecosystem adapter, any model provider, and
+opt into the sandbox only when you need production-grade isolation.
 
 ---
 
