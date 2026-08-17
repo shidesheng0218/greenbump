@@ -1,6 +1,6 @@
 {
   "name": "greenbump",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Upgrade a dependency and let an AI agent fix the code it breaks — until CI is green. The Renovate that actually mends your code.",
   "type": "module",
   "bin": {

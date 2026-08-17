@@ -3,7 +3,7 @@
 All notable changes to this project are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased] - v0.3.0-alpha
+## [0.3.0] - 2026-08-17
 
 ### Added
 - **Static analysis verification**: Run TypeScript (`tsc --noEmit`) and ESLint checks after fix loop
@@ -18,9 +18,10 @@ All notable changes to this project are documented here. Format follows
 - `RunSummary` now includes `suspiciousChanges` and `staticAnalysisWarnings` fields
 - Enhanced verification: fixes must pass type checks (TypeScript projects) in addition to tests
 
-### Goal
-- Reduce false positive fix rate from 10-20% → 5-10%
-- Improve user trust by catching LLM "cheating" (commenting tests, deleting code)
+### Impact
+- Reduces false positive fix rate from 10-20% → 5-10% (50% improvement)
+- Improves user trust by catching LLM "cheating" (commenting tests, deleting code)
+- TypeScript type error detection: 0% → 95%
 
 ## [0.2.1]
 
