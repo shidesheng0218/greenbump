@@ -6503,8 +6503,8 @@ async function pathExists(p2) {
 // dist/engine/ecosystems/npm.js
 async function readScripts(cwd) {
   try {
-    const { readFile: readFile11 } = await import("node:fs/promises");
-    const raw = await readFile11((0, import_node_path.join)(cwd, "package.json"), "utf8");
+    const { readFile: readFile13 } = await import("node:fs/promises");
+    const raw = await readFile13((0, import_node_path.join)(cwd, "package.json"), "utf8");
     const pkg = JSON.parse(raw);
     return { build: pkg.scripts?.build, test: pkg.scripts?.test };
   } catch {
@@ -6546,8 +6546,8 @@ var npmAdapter = {
 var import_node_path2 = require("node:path");
 async function readScripts2(cwd) {
   try {
-    const { readFile: readFile11 } = await import("node:fs/promises");
-    const raw = await readFile11((0, import_node_path2.join)(cwd, "package.json"), "utf8");
+    const { readFile: readFile13 } = await import("node:fs/promises");
+    const raw = await readFile13((0, import_node_path2.join)(cwd, "package.json"), "utf8");
     const pkg = JSON.parse(raw);
     return { build: pkg.scripts?.build, test: pkg.scripts?.test };
   } catch {
@@ -6598,8 +6598,8 @@ var yarnAdapter = {
 var import_node_path3 = require("node:path");
 async function readScripts3(cwd) {
   try {
-    const { readFile: readFile11 } = await import("node:fs/promises");
-    const raw = await readFile11((0, import_node_path3.join)(cwd, "package.json"), "utf8");
+    const { readFile: readFile13 } = await import("node:fs/promises");
+    const raw = await readFile13((0, import_node_path3.join)(cwd, "package.json"), "utf8");
     const pkg = JSON.parse(raw);
     return { build: pkg.scripts?.build, test: pkg.scripts?.test };
   } catch {
@@ -6992,14 +6992,14 @@ var bundlerAdapter = {
   }
 };
 async function pinInGemfile(cwd, name, version, fallback) {
-  const { readFile: readFile11, writeFile: writeFile8 } = await import("node:fs/promises");
+  const { readFile: readFile13, writeFile: writeFile10 } = await import("node:fs/promises");
   try {
     const path2 = (0, import_node_path11.join)(cwd, "Gemfile");
-    const raw = await readFile11(path2, "utf8");
+    const raw = await readFile13(path2, "utf8");
     const re2 = new RegExp(`^(\\s*gem\\s+["']${name}["'])(.*)$`, "m");
     if (re2.test(raw)) {
       const next = raw.replace(re2, `$1, "= ${version}"`);
-      await writeFile8(path2, next, "utf8");
+      await writeFile10(path2, next, "utf8");
     }
   } catch {
   }
@@ -7087,7 +7087,7 @@ var mavenAdapter = {
     return out;
   },
   async install(cwd, name, version) {
-    const { readFile: rf, writeFile: writeFile8 } = await import("node:fs/promises");
+    const { readFile: rf, writeFile: writeFile10 } = await import("node:fs/promises");
     const path2 = (0, import_node_path13.join)(cwd, "pom.xml");
     const [, artifactId] = name.split(":");
     const raw = await rf(path2, "utf8");
@@ -7095,7 +7095,7 @@ var mavenAdapter = {
     if (!re2.test(raw)) {
       return { code: 1, stdout: "", stderr: `could not find ${name} in pom.xml`, combined: `could not find ${name} in pom.xml` };
     }
-    await writeFile8(path2, raw.replace(re2, `$1${version}$3`), "utf8");
+    await writeFile10(path2, raw.replace(re2, `$1${version}$3`), "utf8");
     return { code: 0, stdout: `pinned ${name} to ${version} in pom.xml`, stderr: "", combined: "" };
   },
   async defaultCheckCommands() {
@@ -7278,14 +7278,14 @@ var mixAdapter = {
     return parseMixOutdated(r2.stdout);
   },
   async install(cwd, name, version) {
-    const { readFile: readFile11, writeFile: writeFile8 } = await import("node:fs/promises");
+    const { readFile: readFile13, writeFile: writeFile10 } = await import("node:fs/promises");
     const path2 = (0, import_node_path15.join)(cwd, "mix.exs");
-    const raw = await readFile11(path2, "utf8");
+    const raw = await readFile13(path2, "utf8");
     const re2 = new RegExp(`(\\{:${name},\\s*)"[^"]+"`);
     if (!re2.test(raw)) {
       return { code: 1, stdout: "", stderr: `could not find :${name} in mix.exs`, combined: `could not find :${name} in mix.exs` };
     }
-    await writeFile8(path2, raw.replace(re2, `$1"== ${version}"`), "utf8");
+    await writeFile10(path2, raw.replace(re2, `$1"== ${version}"`), "utf8");
     return { code: 0, stdout: `pinned ${name} to ${version} in mix.exs`, stderr: "", combined: "" };
   },
   async defaultCheckCommands() {
@@ -7616,8 +7616,8 @@ var elmAdapter = {
       return { code: 1, stdout: "", stderr: `${name} is not a direct dependency in elm.json`, combined: `${name} is not a direct dependency in elm.json` };
     }
     json.dependencies.direct[name] = version;
-    const { writeFile: writeFile8 } = await import("node:fs/promises");
-    await writeFile8(path2, JSON.stringify(json, null, 4), "utf8");
+    const { writeFile: writeFile10 } = await import("node:fs/promises");
+    await writeFile10(path2, JSON.stringify(json, null, 4), "utf8");
     return { code: 0, stdout: `pinned ${name} to ${version} in elm.json`, stderr: "", combined: "" };
   },
   async defaultCheckCommands() {
@@ -19520,6 +19520,761 @@ function findFileContext(diff, lineIndex) {
   return null;
 }
 
+// dist/engine/sandbox/orchestrator.js
+var import_path12 = require("path");
+var import_promises14 = require("fs/promises");
+
+// dist/engine/sandbox/docker-manager.js
+var import_fs2 = require("fs");
+var import_path9 = require("path");
+var import_promises12 = require("fs/promises");
+async function checkDockerAvailable() {
+  const info2 = {
+    available: false,
+    composeAvailable: false
+  };
+  try {
+    const versionResult = await exec("docker", ["--version"], { cwd: process.cwd() });
+    info2.version = versionResult.stdout.trim();
+    await exec("docker", ["ps"], { cwd: process.cwd() });
+    info2.available = true;
+    try {
+      await exec("docker-compose", ["--version"], { cwd: process.cwd() });
+      info2.composeAvailable = true;
+    } catch {
+    }
+  } catch {
+  }
+  return info2;
+}
+async function buildDockerImage(cwd, imageName, dockerfilePath) {
+  console.log(`\u{1F433} Building Docker image: ${imageName}...`);
+  await exec("docker", [
+    "build",
+    "-t",
+    imageName,
+    "-f",
+    dockerfilePath,
+    "."
+  ], { cwd });
+}
+async function runVerificationInContainer(cwd, options) {
+  const args = [
+    "run",
+    "--rm",
+    "-v",
+    `${cwd}:/workspace`,
+    "-w",
+    "/workspace"
+  ];
+  if (options.networkMode) {
+    args.push("--network", options.networkMode);
+  }
+  if (options.env) {
+    for (const [key, value] of Object.entries(options.env)) {
+      args.push("-e", `${key}=${value}`);
+    }
+  }
+  args.push(options.image);
+  args.push("sh", "-c", "npm install && npm run build 2>&1 && npm test 2>&1");
+  let exitCode = 0;
+  let stdout = "";
+  let stderr = "";
+  let buildSuccess = false;
+  let testsPassed = false;
+  try {
+    const result = await exec("docker", args, {
+      cwd,
+      timeout: options.timeout || 6e5
+      // 10 minutes default
+    });
+    stdout = result.stdout;
+    stderr = result.stderr;
+    exitCode = 0;
+    buildSuccess = true;
+    testsPassed = true;
+  } catch (error) {
+    exitCode = error.exitCode || 1;
+    stdout = error.stdout || "";
+    stderr = error.stderr || "";
+    buildSuccess = !stderr.includes("npm run build") && !stdout.includes("build failed");
+    testsPassed = false;
+  }
+  return {
+    exitCode,
+    stdout,
+    stderr,
+    buildSuccess,
+    testsPassed
+  };
+}
+async function startComposeServices(cwd, composeFile) {
+  console.log("\u{1F680} Starting docker-compose services...");
+  const projectName = `greenbump-${Date.now()}`;
+  await exec("docker-compose", [
+    "-f",
+    composeFile,
+    "-p",
+    projectName,
+    "up",
+    "-d"
+  ], { cwd });
+  return projectName;
+}
+async function checkServiceHealth(projectName, serviceName) {
+  try {
+    const result = await exec("docker-compose", ["-p", projectName, "ps", "--filter", `name=${serviceName}`, "--format", "json"], { cwd: process.cwd() });
+    const output = result.stdout.trim();
+    if (!output)
+      return false;
+    return output.includes('"State":"running"') || output.includes("healthy");
+  } catch {
+    return false;
+  }
+}
+async function waitForServices(projectName, services, timeout = 60) {
+  console.log("\u23F3 Waiting for services to become healthy...");
+  const deadline = Date.now() + timeout * 1e3;
+  const healthyServices = /* @__PURE__ */ new Set();
+  while (Date.now() < deadline && healthyServices.size < services.length) {
+    for (const service of services) {
+      if (healthyServices.has(service))
+        continue;
+      const healthy = await checkServiceHealth(projectName, service);
+      if (healthy) {
+        console.log(`\u2713 ${service} is healthy`);
+        healthyServices.add(service);
+      }
+    }
+    if (healthyServices.size < services.length) {
+      await sleep3(2e3);
+    }
+  }
+  if (healthyServices.size < services.length) {
+    const unhealthy = services.filter((s2) => !healthyServices.has(s2));
+    throw new Error(`Timeout waiting for services to become healthy: ${unhealthy.join(", ")}`);
+  }
+}
+async function stopComposeServices(cwd, composeFile, projectName) {
+  console.log("\u{1F6D1} Stopping docker-compose services...");
+  try {
+    await exec("docker-compose", [
+      "-f",
+      composeFile,
+      "-p",
+      projectName,
+      "down",
+      "-v"
+    ], { cwd });
+  } catch (error) {
+    console.warn("Warning: Failed to stop compose services:", error);
+  }
+}
+async function removeDockerImage(imageName) {
+  try {
+    await exec("docker", ["rmi", imageName], { cwd: process.cwd() });
+  } catch {
+  }
+}
+async function cleanupDocker(cwd, imageName, composeFile, projectName) {
+  console.log("\u{1F9F9} Cleaning up Docker resources...");
+  if (composeFile && projectName) {
+    await stopComposeServices(cwd, composeFile, projectName);
+  }
+  await removeDockerImage(imageName);
+  const tempFiles = [
+    (0, import_path9.join)(cwd, ".greenbump-Dockerfile"),
+    (0, import_path9.join)(cwd, ".greenbump-compose.yml")
+  ];
+  for (const file of tempFiles) {
+    try {
+      if ((0, import_fs2.existsSync)(file)) {
+        await (0, import_promises12.rm)(file);
+      }
+    } catch {
+    }
+  }
+}
+function sleep3(ms) {
+  return new Promise((resolve2) => setTimeout(resolve2, ms));
+}
+
+// dist/engine/sandbox/template-generator.js
+var import_fs3 = require("fs");
+var import_path10 = require("path");
+async function detectProjectType(cwd) {
+  if ((0, import_fs3.existsSync)((0, import_path10.join)(cwd, "package.json"))) {
+    return "nodejs";
+  }
+  if ((0, import_fs3.existsSync)((0, import_path10.join)(cwd, "requirements.txt")) || (0, import_fs3.existsSync)((0, import_path10.join)(cwd, "pyproject.toml")) || (0, import_fs3.existsSync)((0, import_path10.join)(cwd, "setup.py"))) {
+    return "python";
+  }
+  return "unknown";
+}
+async function generateDockerfile(projectType, cwd) {
+  if (projectType === "nodejs") {
+    return await generateNodeJsDockerfile(cwd);
+  }
+  if (projectType === "python") {
+    return await generatePythonDockerfile(cwd);
+  }
+  return await generateNodeJsDockerfile(cwd);
+}
+async function generateNodeJsDockerfile(cwd) {
+  const hasPnpm = (0, import_fs3.existsSync)((0, import_path10.join)(cwd, "pnpm-lock.yaml"));
+  const hasYarn = (0, import_fs3.existsSync)((0, import_path10.join)(cwd, "yarn.lock"));
+  let installCmd = "npm ci";
+  let copyLockFile = "COPY package*.json ./";
+  if (hasPnpm) {
+    installCmd = "corepack enable && pnpm install --frozen-lockfile";
+    copyLockFile = "COPY package*.json pnpm-lock.yaml ./";
+  } else if (hasYarn) {
+    installCmd = "yarn install --frozen-lockfile";
+    copyLockFile = "COPY package*.json yarn.lock ./";
+  }
+  return `FROM node:20-slim
+
+WORKDIR /workspace
+
+# Copy package files
+${copyLockFile}
+
+# Install dependencies
+RUN ${installCmd}
+
+# Copy source code
+COPY . .
+
+# Build if build script exists
+RUN if grep -q '"build":' package.json; then npm run build || true; fi
+
+# Default command: run tests
+CMD ["npm", "test"]
+`;
+}
+async function generatePythonDockerfile(cwd) {
+  const hasRequirements = (0, import_fs3.existsSync)((0, import_path10.join)(cwd, "requirements.txt"));
+  const hasPyproject = (0, import_fs3.existsSync)((0, import_path10.join)(cwd, "pyproject.toml"));
+  let installCmd = "";
+  let copyFiles = "";
+  if (hasRequirements) {
+    copyFiles = "COPY requirements*.txt ./";
+    installCmd = "pip install --no-cache-dir -r requirements.txt";
+  } else if (hasPyproject) {
+    copyFiles = "COPY pyproject.toml setup.py* ./";
+    installCmd = "pip install --no-cache-dir -e .";
+  }
+  return `FROM python:3.11-slim
+
+WORKDIR /workspace
+
+# Copy dependency files
+${copyFiles}
+
+# Install dependencies
+RUN ${installCmd}
+
+# Copy source code
+COPY . .
+
+# Default command: run tests
+CMD ["pytest"]
+`;
+}
+async function generateComposeFile(services) {
+  const serviceConfigs = services.map(getServiceConfig).filter((config) => config !== null);
+  if (serviceConfigs.length === 0) {
+    return "";
+  }
+  const servicesYaml = serviceConfigs.map(formatServiceConfig).join("\n");
+  return `version: '3.8'
+
+services:
+${servicesYaml}
+
+networks:
+  default:
+    name: greenbump_network
+`;
+}
+function getServiceConfig(serviceName) {
+  const configs = {
+    postgres: {
+      name: "postgres",
+      image: "postgres:16-alpine",
+      ports: ["5432:5432"],
+      environment: {
+        POSTGRES_USER: "test",
+        POSTGRES_PASSWORD: "test",
+        POSTGRES_DB: "test"
+      },
+      healthcheck: {
+        test: ["CMD-SHELL", "pg_isready -U test"],
+        interval: "5s",
+        timeout: "5s",
+        retries: 5
+      }
+    },
+    mysql: {
+      name: "mysql",
+      image: "mysql:8",
+      ports: ["3306:3306"],
+      environment: {
+        MYSQL_ROOT_PASSWORD: "test",
+        MYSQL_DATABASE: "test"
+      },
+      healthcheck: {
+        test: ["CMD", "mysqladmin", "ping", "-h", "localhost"],
+        interval: "5s",
+        timeout: "5s",
+        retries: 5
+      }
+    },
+    redis: {
+      name: "redis",
+      image: "redis:7-alpine",
+      ports: ["6379:6379"],
+      healthcheck: {
+        test: ["CMD", "redis-cli", "ping"],
+        interval: "5s",
+        timeout: "5s",
+        retries: 5
+      }
+    },
+    mongodb: {
+      name: "mongodb",
+      image: "mongo:7",
+      ports: ["27017:27017"],
+      environment: {
+        MONGO_INITDB_ROOT_USERNAME: "test",
+        MONGO_INITDB_ROOT_PASSWORD: "test"
+      },
+      healthcheck: {
+        test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"],
+        interval: "5s",
+        timeout: "5s",
+        retries: 5
+      }
+    }
+  };
+  return configs[serviceName] || null;
+}
+function formatServiceConfig(config) {
+  const lines = [`  ${config.name}:`];
+  lines.push(`    image: ${config.image}`);
+  if (config.environment) {
+    lines.push("    environment:");
+    for (const [key, value] of Object.entries(config.environment)) {
+      lines.push(`      ${key}: ${value}`);
+    }
+  }
+  if (config.ports.length > 0) {
+    lines.push("    ports:");
+    for (const port of config.ports) {
+      lines.push(`      - "${port}"`);
+    }
+  }
+  lines.push("    healthcheck:");
+  lines.push(`      test: ${JSON.stringify(config.healthcheck.test)}`);
+  lines.push(`      interval: ${config.healthcheck.interval}`);
+  lines.push(`      timeout: ${config.healthcheck.timeout}`);
+  lines.push(`      retries: ${config.healthcheck.retries}`);
+  return lines.join("\n");
+}
+
+// dist/engine/sandbox/service-detector.js
+var import_fs4 = require("fs");
+var import_path11 = require("path");
+var import_promises13 = require("fs/promises");
+async function detectRequiredServices(cwd) {
+  const services = /* @__PURE__ */ new Set();
+  await detectFromPackageJson(cwd, services);
+  await detectFromDockerCompose(cwd, services);
+  await detectFromEnvFiles(cwd, services);
+  return Array.from(services);
+}
+async function detectFromPackageJson(cwd, services) {
+  const pkgPath = (0, import_path11.join)(cwd, "package.json");
+  if (!(0, import_fs4.existsSync)(pkgPath))
+    return;
+  try {
+    const content = await (0, import_promises13.readFile)(pkgPath, "utf-8");
+    const pkg = JSON.parse(content);
+    const allDeps = {
+      ...pkg.dependencies,
+      ...pkg.devDependencies
+    };
+    if (allDeps.pg || allDeps["pg-promise"] || allDeps.postgres || allDeps.sequelize) {
+      services.add("postgres");
+    }
+    if (allDeps.mysql || allDeps.mysql2) {
+      services.add("mysql");
+    }
+    if (allDeps.redis || allDeps.ioredis) {
+      services.add("redis");
+    }
+    if (allDeps.mongodb || allDeps.mongoose) {
+      services.add("mongodb");
+    }
+  } catch {
+  }
+}
+async function detectFromDockerCompose(cwd, services) {
+  const composeFiles = [
+    "docker-compose.yml",
+    "docker-compose.yaml",
+    "docker-compose.test.yml",
+    "docker-compose.test.yaml"
+  ];
+  for (const file of composeFiles) {
+    const composePath = (0, import_path11.join)(cwd, file);
+    if (!(0, import_fs4.existsSync)(composePath))
+      continue;
+    try {
+      const content = await (0, import_promises13.readFile)(composePath, "utf-8");
+      if (/image:\s*postgres/i.test(content)) {
+        services.add("postgres");
+      }
+      if (/image:\s*mysql/i.test(content)) {
+        services.add("mysql");
+      }
+      if (/image:\s*redis/i.test(content)) {
+        services.add("redis");
+      }
+      if (/image:\s*mongo/i.test(content)) {
+        services.add("mongodb");
+      }
+    } catch {
+    }
+  }
+}
+async function detectFromEnvFiles(cwd, services) {
+  const envFiles = [
+    ".env",
+    ".env.test",
+    ".env.local",
+    ".env.development"
+  ];
+  for (const file of envFiles) {
+    const envPath = (0, import_path11.join)(cwd, file);
+    if (!(0, import_fs4.existsSync)(envPath))
+      continue;
+    try {
+      const content = await (0, import_promises13.readFile)(envPath, "utf-8");
+      if (/postgres:\/\//i.test(content) || /postgresql:\/\//i.test(content)) {
+        services.add("postgres");
+      }
+      if (/mysql:\/\//i.test(content)) {
+        services.add("mysql");
+      }
+      if (/redis:\/\//i.test(content)) {
+        services.add("redis");
+      }
+      if (/mongodb:\/\//i.test(content)) {
+        services.add("mongodb");
+      }
+      if (/POSTGRES_HOST|PGHOST|DATABASE_URL.*postgres/i.test(content)) {
+        services.add("postgres");
+      }
+      if (/MYSQL_HOST|DATABASE_URL.*mysql/i.test(content)) {
+        services.add("mysql");
+      }
+      if (/REDIS_HOST|REDIS_URL/i.test(content)) {
+        services.add("redis");
+      }
+      if (/MONGO_HOST|MONGODB_URL|MONGO_URL/i.test(content)) {
+        services.add("mongodb");
+      }
+    } catch {
+    }
+  }
+}
+function getServiceDisplayName(service) {
+  const names = {
+    postgres: "PostgreSQL",
+    mysql: "MySQL",
+    redis: "Redis",
+    mongodb: "MongoDB"
+  };
+  return names[service] || service;
+}
+
+// dist/engine/sandbox/orchestrator.js
+async function runInSandbox(cwd, options) {
+  const dockerInfo = await checkDockerAvailable();
+  if (!dockerInfo.available) {
+    console.warn("\u26A0\uFE0F  Docker not available, skipping sandbox verification");
+    console.warn("   Install Docker for isolated testing: https://docs.docker.com/get-docker/");
+    return {
+      passed: false,
+      buildSuccess: false,
+      testsPassed: false,
+      services: [],
+      logs: "",
+      exitCode: -1,
+      skipped: true,
+      skipReason: "docker_unavailable"
+    };
+  }
+  console.log("\u{1F433} Starting sandbox environment...");
+  console.log(`   Docker version: ${dockerInfo.version}`);
+  const projectType = await detectProjectType(cwd);
+  console.log(`   Project type: ${projectType}`);
+  const services = options.services || await detectRequiredServices(cwd);
+  if (services.length > 0) {
+    console.log(`   Required services: ${services.map(getServiceDisplayName).join(", ")}`);
+  }
+  const imageName = options.dockerImage || "greenbump-verify";
+  const dockerfilePath = (0, import_path12.join)(cwd, ".greenbump-Dockerfile");
+  const composeFilePath = (0, import_path12.join)(cwd, ".greenbump-compose.yml");
+  let projectName;
+  const serviceHealths = [];
+  try {
+    const dockerfile = await generateDockerfile(projectType, cwd);
+    await (0, import_promises14.writeFile)(dockerfilePath, dockerfile);
+    let composeFile = "";
+    if (services.length > 0) {
+      composeFile = await generateComposeFile(services);
+      if (composeFile) {
+        await (0, import_promises14.writeFile)(composeFilePath, composeFile);
+      }
+    }
+    await buildDockerImage(cwd, imageName, dockerfilePath);
+    if (services.length > 0 && composeFile && dockerInfo.composeAvailable) {
+      projectName = await startComposeServices(cwd, composeFilePath);
+      await waitForServices(projectName, services, options.timeout ? options.timeout / 1e3 : 60);
+      for (const service of services) {
+        serviceHealths.push({
+          name: service,
+          healthy: true,
+          displayName: getServiceDisplayName(service)
+        });
+      }
+    } else if (services.length > 0 && !dockerInfo.composeAvailable) {
+      console.warn("\u26A0\uFE0F  docker-compose not available, skipping service startup");
+    }
+    console.log("\u{1F50D} Running verification in container...");
+    const networkMode = projectName ? `${projectName}_default` : "bridge";
+    const result = await runVerificationInContainer(cwd, {
+      image: imageName,
+      networkMode,
+      timeout: options.timeout
+    });
+    if (result.exitCode === 0) {
+      console.log("\u2705 Verification passed in sandbox");
+    } else {
+      console.error("\u274C Verification failed in sandbox");
+      console.error(result.stderr);
+    }
+    return {
+      passed: result.exitCode === 0,
+      buildSuccess: result.buildSuccess,
+      testsPassed: result.testsPassed,
+      services: serviceHealths,
+      logs: result.stdout + "\n" + result.stderr,
+      exitCode: result.exitCode
+    };
+  } finally {
+    if (!options.keepContainer) {
+      await cleanupDocker(cwd, imageName, composeFilePath, projectName);
+    } else {
+      console.log("\u{1F527} Container kept for debugging (use --keep-container=false to cleanup)");
+    }
+  }
+}
+
+// dist/engine/perf/metrics.js
+var import_fs5 = require("fs");
+var import_path13 = require("path");
+var import_promises15 = require("fs/promises");
+async function hasBuildScript(cwd) {
+  const pkgPath = (0, import_path13.join)(cwd, "package.json");
+  if (!(0, import_fs5.existsSync)(pkgPath))
+    return false;
+  try {
+    const content = await (0, import_promises15.readFile)(pkgPath, "utf-8");
+    const pkg = JSON.parse(content);
+    return pkg.scripts?.build !== void 0;
+  } catch {
+    return false;
+  }
+}
+async function hasTestScript(cwd) {
+  const pkgPath = (0, import_path13.join)(cwd, "package.json");
+  if (!(0, import_fs5.existsSync)(pkgPath))
+    return false;
+  try {
+    const content = await (0, import_promises15.readFile)(pkgPath, "utf-8");
+    const pkg = JSON.parse(content);
+    return pkg.scripts?.test !== void 0;
+  } catch {
+    return false;
+  }
+}
+async function getTotalSize(dirPath) {
+  if (!(0, import_fs5.existsSync)(dirPath))
+    return 0;
+  try {
+    const result = await exec("du", ["-sb", dirPath], { cwd: dirPath });
+    const match = result.stdout.match(/^(\d+)/);
+    return match ? parseInt(match[1], 10) : 0;
+  } catch {
+    return 0;
+  }
+}
+async function captureBaseline(cwd) {
+  console.log("\u{1F4CA} Capturing performance baseline...");
+  const metrics = {
+    timestamp: /* @__PURE__ */ new Date()
+  };
+  try {
+    console.log("   Measuring install time...");
+    const installStart = Date.now();
+    await exec("npm", ["install"], { cwd });
+    metrics.installTime = (Date.now() - installStart) / 1e3;
+    console.log(`   \u2713 Install: ${metrics.installTime.toFixed(1)}s`);
+    if (await hasBuildScript(cwd)) {
+      console.log("   Measuring build time...");
+      const buildStart = Date.now();
+      await exec("npm", ["run", "build"], { cwd });
+      metrics.buildTime = (Date.now() - buildStart) / 1e3;
+      console.log(`   \u2713 Build: ${metrics.buildTime.toFixed(1)}s`);
+      const distDir = (0, import_path13.join)(cwd, "dist");
+      if ((0, import_fs5.existsSync)(distDir)) {
+        metrics.bundleSize = await getTotalSize(distDir);
+        console.log(`   \u2713 Bundle: ${(metrics.bundleSize / 1024).toFixed(0)} KB`);
+      }
+    }
+    if (await hasTestScript(cwd)) {
+      console.log("   Measuring test time...");
+      const testStart = Date.now();
+      await exec("npm", ["test"], { cwd });
+      metrics.testTime = (Date.now() - testStart) / 1e3;
+      console.log(`   \u2713 Test: ${metrics.testTime.toFixed(1)}s`);
+    }
+  } catch (error) {
+    console.warn("\u26A0\uFE0F  Warning: Failed to capture complete baseline:", error.message);
+  }
+  const greenbumpDir = (0, import_path13.join)(cwd, ".greenbump");
+  if (!(0, import_fs5.existsSync)(greenbumpDir)) {
+    await (0, import_promises15.mkdir)(greenbumpDir, { recursive: true });
+  }
+  const baselinePath = (0, import_path13.join)(greenbumpDir, "perf-baseline.json");
+  await (0, import_promises15.writeFile)(baselinePath, JSON.stringify(metrics, null, 2));
+  return metrics;
+}
+async function loadBaseline(cwd) {
+  const baselinePath = (0, import_path13.join)(cwd, ".greenbump", "perf-baseline.json");
+  if (!(0, import_fs5.existsSync)(baselinePath)) {
+    return null;
+  }
+  try {
+    const content = await (0, import_promises15.readFile)(baselinePath, "utf-8");
+    const baseline = JSON.parse(content);
+    if (baseline.timestamp) {
+      baseline.timestamp = new Date(baseline.timestamp);
+    }
+    return baseline;
+  } catch {
+    return null;
+  }
+}
+
+// dist/engine/perf/regression.js
+var DEFAULT_THRESHOLDS = {
+  installTime: 0.3,
+  // 30% slower
+  buildTime: 0.2,
+  // 20% slower
+  testTime: 0.3,
+  // 30% slower
+  bundleSize: 0.15,
+  // 15% larger
+  memoryPeak: 0.4
+  // 40% more memory
+};
+function comparePerformance(baseline, current, thresholds = {}) {
+  const mergedThresholds = { ...DEFAULT_THRESHOLDS, ...thresholds };
+  const comparisons = [];
+  for (const [metric, threshold] of Object.entries(mergedThresholds)) {
+    const before = baseline[metric];
+    const after = current[metric];
+    if (before === void 0 || after === void 0)
+      continue;
+    if (before === 0)
+      continue;
+    const delta = after - before;
+    const percentChange = delta / before * 100;
+    const isRegression = percentChange > threshold * 100;
+    comparisons.push({
+      metric,
+      before,
+      after,
+      delta,
+      percentChange,
+      isRegression,
+      severity: isRegression ? percentChange > threshold * 200 ? "critical" : "warning" : "ok"
+    });
+  }
+  return comparisons;
+}
+function hasRegressions(comparisons) {
+  return comparisons.some((c2) => c2.isRegression);
+}
+function getMetricDisplayName(metric) {
+  const names = {
+    installTime: "Install time",
+    buildTime: "Build time",
+    testTime: "Test time",
+    bundleSize: "Bundle size",
+    memoryPeak: "Memory usage"
+  };
+  return names[metric] || metric;
+}
+function formatMetricValue(metric, value) {
+  if (metric === "bundleSize") {
+    if (value < 1024 * 1024) {
+      return `${(value / 1024).toFixed(0)} KB`;
+    }
+    return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+  }
+  if (metric === "memoryPeak") {
+    return `${value.toFixed(0)} MB`;
+  }
+  return `${value.toFixed(1)}s`;
+}
+function formatPercentChange(percentChange) {
+  const sign = percentChange > 0 ? "+" : "";
+  return `${sign}${percentChange.toFixed(1)}%`;
+}
+function displayPerformanceComparison(comparisons) {
+  if (comparisons.length === 0) {
+    console.log("\u{1F4CA} No performance metrics to compare");
+    return;
+  }
+  console.log("\n\u{1F4CA} Performance Comparison:");
+  for (const comparison of comparisons) {
+    const name = getMetricDisplayName(comparison.metric);
+    const before = formatMetricValue(comparison.metric, comparison.before);
+    const after = formatMetricValue(comparison.metric, comparison.after);
+    const change = formatPercentChange(comparison.percentChange);
+    if (comparison.isRegression) {
+      const icon = comparison.severity === "critical" ? "\u{1F534}" : "\u26A0\uFE0F";
+      console.log(`   ${icon} ${name}: ${before} \u2192 ${after} (${change}) - REGRESSION`);
+    } else {
+      console.log(`   \u2713 ${name}: ${before} \u2192 ${after} (${change})`);
+    }
+  }
+  const regressionCount = comparisons.filter((c2) => c2.isRegression).length;
+  if (regressionCount > 0) {
+    console.log(`
+\u26A0\uFE0F  ${regressionCount} performance regression(s) detected!`);
+    console.log("   Review changes before committing.\n");
+  } else {
+    console.log("\n\u2705 No performance regressions detected\n");
+  }
+}
+
 // dist/engine/run.js
 var RunError = class extends Error {
 };
@@ -19562,6 +20317,11 @@ async function run(opts) {
     branch = `greenbump/${target.name.replace(/[^a-zA-Z0-9._-]/g, "-")}-${to}`;
     await createBranch(cwd, branch);
     log(`created branch ${branch}`);
+  }
+  let perfBaseline;
+  if (opts.detectRegressions) {
+    log("capturing performance baseline\u2026");
+    perfBaseline = await captureBaseline(cwd);
   }
   log("running baseline build + tests\u2026");
   const baseline = await runChecks(pm, cwd, checkOverrides);
@@ -19652,6 +20412,41 @@ ${up.output}`);
     summary.needsReview = true;
     summary.suspiciousChanges = suspiciousChanges.map((c2) => `${c2.type}: ${c2.file} - ${c2.description}`);
   }
+  if (opts.sandbox) {
+    log("running sandbox verification\u2026");
+    const sandboxResult = await runInSandbox(cwd, {
+      enabled: true,
+      services: opts.services,
+      keepContainer: opts.keepContainer,
+      timeout: 600
+    });
+    if (!sandboxResult.skipped) {
+      summary.sandboxResult = {
+        passed: sandboxResult.passed,
+        services: sandboxResult.services.map((s2) => s2.displayName)
+      };
+      if (!sandboxResult.passed) {
+        log("\u26A0\uFE0F  Sandbox verification failed");
+        summary.needsReview = true;
+      }
+    }
+  }
+  if (opts.detectRegressions && perfBaseline) {
+    log("checking for performance regressions\u2026");
+    const currentMetrics = await loadBaseline(cwd);
+    if (currentMetrics) {
+      const comparisons = comparePerformance(perfBaseline, currentMetrics);
+      displayPerformanceComparison(comparisons);
+      if (hasRegressions(comparisons)) {
+        log("\u26A0\uFE0F  Performance regressions detected");
+        summary.needsReview = true;
+        summary.performanceRegression = {
+          detected: true,
+          details: comparisons.filter((c2) => c2.isRegression).map((c2) => `${c2.metric}: ${c2.percentChange.toFixed(1)}% slower/larger`)
+        };
+      }
+    }
+  }
   summary.needsReview = computeNeedsReview({
     unverifiable: false,
     neededFix: true,
@@ -19734,7 +20529,7 @@ function renderPrBody(s2) {
 }
 
 // dist/report.js
-var import_promises12 = require("node:fs/promises");
+var import_promises16 = require("node:fs/promises");
 var REPORT_SCHEMA_VERSION = 1;
 function buildReport(runs) {
   return {
@@ -19744,7 +20539,7 @@ function buildReport(runs) {
   };
 }
 async function writeReport(path2, envelope) {
-  await (0, import_promises12.writeFile)(path2, JSON.stringify(envelope, null, 2) + "\n", "utf8");
+  await (0, import_promises16.writeFile)(path2, JSON.stringify(envelope, null, 2) + "\n", "utf8");
 }
 
 // dist/action/github.js

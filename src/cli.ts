@@ -42,6 +42,10 @@ program
   .option("--fail-fast", "abort a batch on the first hard failure instead of continuing")
   .option("--workspace <path>", "disambiguate a dep that's outdated at different versions in multiple workspace packages")
   .option("--scan", "list outdated dependencies without upgrading (read-only mode)")
+  .option("--sandbox", "run tests in isolated Docker container (requires Docker)")
+  .option("--services <services>", "comma-separated list of services to start (postgres,redis,mongodb)")
+  .option("--keep-container", "keep Docker container after run for debugging")
+  .option("--detect-regressions", "check for performance regressions after upgrade")
   .action(async (deps, opts) => {
     if (opts.listProviders) {
       console.log("Built-in provider presets:\n" + listProviders());
@@ -121,6 +125,10 @@ program
       maxTokens: opts.maxTokens ? parseInt(opts.maxTokens, 10) : undefined,
       noGit: opts.git === false,
       onLog: log,
+      sandbox: opts.sandbox,
+      services: opts.services ? opts.services.split(",").map((s: string) => s.trim()) : undefined,
+      keepContainer: opts.keepContainer,
+      detectRegressions: opts.detectRegressions,
     };
 
     const isBatch = opts.all || deps.length > 1;

@@ -3,7 +3,50 @@
 All notable changes to this project are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased] - v0.4.0
+## [Unreleased] - v0.5.0
+
+### Added
+- **Docker sandbox isolation**: Run tests in isolated Docker containers with `--sandbox` flag
+  - Auto-generates Dockerfile for Node.js and Python projects
+  - Eliminates environment pollution and matches CI environment
+  - Supports custom base images via configuration
+- **Database integration testing**: Auto-detect and start required services
+  - Supports PostgreSQL, MySQL, Redis, MongoDB via docker-compose
+  - `--services` flag to manually specify services (e.g., `--services postgres,redis`)
+  - Automatic service detection from package.json, docker-compose.yml, and .env files
+  - Health check wait with configurable timeout
+- **Performance regression detection**: Compare metrics before/after upgrade with `--detect-regressions`
+  - Tracks install time, build time, test time, bundle size, memory usage
+  - Configurable thresholds (default: build 20%, bundle 15%, test 30%)
+  - Automatic warning when regressions exceed thresholds
+  - Sets `needsReview` flag when performance degrades significantly
+- New CLI flags:
+  - `--sandbox`: Enable Docker sandbox mode
+  - `--services <list>`: Comma-separated services to start
+  - `--keep-container`: Keep container after run for debugging
+  - `--detect-regressions`: Enable performance regression detection
+- New modules:
+  - `src/engine/sandbox/` (orchestrator, docker-manager, template-generator, service-detector)
+  - `src/engine/perf/` (metrics, regression)
+
+### Changed
+- `RunOptions` now includes sandbox and performance detection options
+- `RunSummary` extended with `sandboxResult` and `performanceRegression` fields
+- Enhanced verification pipeline: baseline → upgrade → fix → static analysis → sandbox → performance
+
+### Impact
+- **Zero environment ambiguity**: Docker isolation eliminates "works on my machine" issues
+- **Production-grade verification**: Database integration tests catch real-world breakage
+- **Performance quality gates**: Automatically flag upgrades that degrade performance
+- Target accuracy: 95%+ (up from 90% in v0.4.0)
+- Positions greenbump as most thorough automated upgrade tool vs Dependabot/Renovate
+
+### Requirements
+- Docker must be installed and running for `--sandbox` mode
+- docker-compose recommended for multi-service testing
+- Graceful fallback to local verification if Docker unavailable
+
+## [0.4.0] - 2026-08-17
 
 ### Added
 - **Dependency graph analysis**: Use madge to build dependency graph and identify affected files

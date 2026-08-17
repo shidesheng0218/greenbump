@@ -1,5 +1,7 @@
 import { exec } from "./exec.js";
 
+export { exec };
+
 export async function isGitRepo(cwd: string): Promise<boolean> {
   const r = await exec("git", ["rev-parse", "--is-inside-work-tree"], { cwd });
   return r.code === 0 && r.stdout.trim() === "true";

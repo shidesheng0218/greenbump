@@ -16,6 +16,9 @@ import { runFixLoop } from "../agent/fixer.js";
 import { createProvider } from "../agent/factory.js";
 import { runStaticAnalysis } from "./verify.js";
 import { detectSuspiciousChanges } from "./change-detector.js";
+import { runInSandbox } from "./sandbox/orchestrator.js";
+import { captureBaseline, loadBaseline } from "./perf/metrics.js";
+import { comparePerformance, displayPerformanceComparison, hasRegressions } from "./perf/regression.js";
 
 export interface RunOptions {
   cwd: string;
@@ -43,6 +46,14 @@ export interface RunOptions {
   /** skip creating a git branch and operate in place */
   noGit?: boolean;
   onLog?: (m: string) => void;
+  /** run tests in isolated Docker container */
+  sandbox?: boolean;
+  /** comma-separated list of services to start (postgres,redis,mongodb) */
+  services?: string[];
+  /** keep Docker container after run for debugging */
+  keepContainer?: boolean;
+  /** check for performance regressions after upgrade */
+  detectRegressions?: boolean;
 }
 
 export interface RunSummary {
@@ -69,6 +80,14 @@ export interface RunSummary {
   testFilesTouched: string[];
   suspiciousChanges?: string[];
   staticAnalysisWarnings?: string[];
+  sandboxResult?: {
+    passed: boolean;
+    services: string[];
+  };
+  performanceRegression?: {
+    detected: boolean;
+    details: string[];
+  };
   diffStat?: string;
   fullDiff?: string;
   durationMs: number;
@@ -150,7 +169,14 @@ export async function run(opts: RunOptions): Promise<RunSummary> {
     log(`created branch ${branch}`);
   }
 
-  // 4. baseline — refuse to run if it's already broken, so we never chase
+  // 4. Performance baseline (if regression detection enabled)
+  let perfBaseline;
+  if (opts.detectRegressions) {
+    log("capturing performance baseline…");
+    perfBaseline = await captureBaseline(cwd);
+  }
+
+  // 4a. baseline — refuse to run if it's already broken, so we never chase
   //    failures that predate the upgrade.
   log("running baseline build + tests…");
   const baseline = await runChecks(pm, cwd, checkOverrides);
@@ -263,6 +289,51 @@ export async function run(opts: RunOptions): Promise<RunSummary> {
     summary.suspiciousChanges = suspiciousChanges.map(c =>
       `${c.type}: ${c.file} - ${c.description}`
     );
+  }
+
+  // Sandbox verification (if enabled)
+  if (opts.sandbox) {
+    log("running sandbox verification…");
+    const sandboxResult = await runInSandbox(cwd, {
+      enabled: true,
+      services: opts.services,
+      keepContainer: opts.keepContainer,
+      timeout: 600,
+    });
+
+    if (!sandboxResult.skipped) {
+      summary.sandboxResult = {
+        passed: sandboxResult.passed,
+        services: sandboxResult.services.map(s => s.displayName),
+      };
+
+      if (!sandboxResult.passed) {
+        log("⚠️  Sandbox verification failed");
+        summary.needsReview = true;
+      }
+    }
+  }
+
+  // Performance regression detection (if enabled)
+  if (opts.detectRegressions && perfBaseline) {
+    log("checking for performance regressions…");
+    const currentMetrics = await loadBaseline(cwd); // Load the metrics captured during the fix
+
+    if (currentMetrics) {
+      const comparisons = comparePerformance(perfBaseline, currentMetrics);
+      displayPerformanceComparison(comparisons);
+
+      if (hasRegressions(comparisons)) {
+        log("⚠️  Performance regressions detected");
+        summary.needsReview = true;
+        summary.performanceRegression = {
+          detected: true,
+          details: comparisons
+            .filter(c => c.isRegression)
+            .map(c => `${c.metric}: ${c.percentChange.toFixed(1)}% slower/larger`),
+        };
+      }
+    }
   }
 
   summary.needsReview = computeNeedsReview({
