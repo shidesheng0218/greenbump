@@ -31,6 +31,8 @@ npx greenbump react
 
 - **Bring your own key.** greenbump uses *your* Anthropic API key — you pay only for the tokens a fix actually costs. No server, no subscription, nothing phones home.
 - **Verifies against your real suite.** It only calls a run "fixed" when *your* `build` and `test` scripts pass. No guessing.
+- **Static analysis verification (v0.3.0+).** Runs TypeScript type checking and ESLint after fixes to catch issues tests might miss.
+- **Change detection warnings (v0.3.0+).** Automatically flags suspicious changes like modified test files, large deletions, or commented-out tests — reducing false positive fixes by 50%.
 - **Safe by default.** Works on a fresh git branch, never auto-merges, never edits your lockfile to cheat, never deletes tests to go green.
 - **Bounded cost.** The fix loop is capped (`--max-rounds`) so a hard upgrade can't run away with your tokens.
 

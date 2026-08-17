@@ -3,6 +3,25 @@
 All notable changes to this project are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased] - v0.3.0-alpha
+
+### Added
+- **Static analysis verification**: Run TypeScript (`tsc --noEmit`) and ESLint checks after fix loop
+- **Change detection warnings**: Automatically flag suspicious changes in git diff
+  - Test file modifications (critical severity)
+  - Large deletions >50 lines (warning severity)
+  - Commented-out or removed test cases (critical severity)
+- Display static analysis and change detection warnings in summary output
+- Set `needsReview` flag when critical issues detected
+
+### Changed
+- `RunSummary` now includes `suspiciousChanges` and `staticAnalysisWarnings` fields
+- Enhanced verification: fixes must pass type checks (TypeScript projects) in addition to tests
+
+### Goal
+- Reduce false positive fix rate from 10-20% → 5-10%
+- Improve user trust by catching LLM "cheating" (commenting tests, deleting code)
+
 ## [0.2.1]
 
 ### Added
