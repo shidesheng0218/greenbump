@@ -3,6 +3,25 @@
 All notable changes to this project are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased] - v0.4.0
+
+### Added
+- **Dependency graph analysis**: Use madge to build dependency graph and identify affected files
+- **Staged fix strategy**: Organize fixes into stages (Configuration → Type Definitions → Source Code)
+- **Incremental commits**: Each stage commits separately, allowing rollback to last successful stage
+- New modules: `dep-graph.ts`, `stages.ts`, `staged-fix.ts`
+- `commitStage()` helper in git.ts for incremental commits
+
+### Changed
+- Foundation for `--staged` flag (will be exposed in CLI in future release)
+- Improved fix success rate for complex upgrades (target: 20-40% → 50-70%)
+
+### Technical Details
+- Uses madge for static dependency analysis
+- Three-stage fix pipeline: config files first, then type definitions, then source code
+- Each stage validates independently before committing
+- Falls back to single-stage fix if dependency graph unavailable
+
 ## [0.3.0] - 2026-08-17
 
 ### Added

@@ -28,6 +28,21 @@ export async function commitAll(cwd: string, message: string): Promise<void> {
   await exec("git", ["commit", "-m", message, "--no-verify"], { cwd });
 }
 
+/**
+ * Create an incremental commit for a specific stage of the fix process.
+ * Used in staged fix mode to create separate commits for each stage.
+ */
+export async function commitStage(
+  cwd: string,
+  stageName: string,
+  stageNumber: number,
+  totalStages: number
+): Promise<void> {
+  await exec("git", ["add", "-A"], { cwd });
+  const message = `fix: stage ${stageNumber}/${totalStages} - ${stageName}\n\nAutomated by greenbump (staged fix mode).`;
+  await exec("git", ["commit", "-m", message, "--no-verify"], { cwd });
+}
+
 /** `git diff --stat` against a ref, for the PR summary. */
 export async function diffStat(cwd: string, ref: string): Promise<string> {
   const r = await exec("git", ["diff", "--stat", ref], { cwd });

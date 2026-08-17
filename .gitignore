@@ -12,3 +12,4 @@ dist/
 examples/**/node_modules/
 examples/**/package-lock.json
 多模态强化工具/
+examples/ts-test-project/

@@ -1,6 +1,6 @@
 {
   "name": "greenbump",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Upgrade a dependency and let an AI agent fix the code it breaks — until CI is green. The Renovate that actually mends your code.",
   "type": "module",
   "bin": {
@@ -39,12 +39,15 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.68.0",
     "commander": "^14.0.0",
+    "madge": "^8.0.0",
     "openai": "^4.77.0",
     "picocolors": "^1.1.1"
   },
   "devDependencies": {
+    "@types/madge": "^5.0.3",
     "@types/node": "^22.10.0",
     "esbuild": "^0.24.0",
+    "glob": "^13.0.6",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0"
   }
