@@ -60,6 +60,28 @@ export function printSummaryBox(summary: RunSummary, write: (s: string) => void)
       write(bar(pc.yellow(`⚠ agent modified test file(s) — review closely:`)));
       for (const f of summary.testFilesTouched) write(bar(`  ${pc.yellow("·")} ${f}`));
     }
+
+    if (summary.suspiciousChanges && summary.suspiciousChanges.length > 0) {
+      write(bar(""));
+      write(bar(pc.yellow(`⚠ suspicious changes detected:`)));
+      for (const change of summary.suspiciousChanges.slice(0, 5)) {
+        write(bar(`  ${pc.yellow("·")} ${change}`));
+      }
+      if (summary.suspiciousChanges.length > 5) {
+        write(bar(`  ${pc.dim(`… +${summary.suspiciousChanges.length - 5} more`)}`));
+      }
+    }
+
+    if (summary.staticAnalysisWarnings && summary.staticAnalysisWarnings.length > 0) {
+      write(bar(""));
+      write(bar(pc.yellow(`⚠ static analysis warnings:`)));
+      for (const warning of summary.staticAnalysisWarnings.slice(0, 3)) {
+        write(bar(`  ${pc.yellow("·")} ${warning}`));
+      }
+      if (summary.staticAnalysisWarnings.length > 3) {
+        write(bar(`  ${pc.dim(`… +${summary.staticAnalysisWarnings.length - 3} more`)}`));
+      }
+    }
   }
 
   if (summary.branch) {

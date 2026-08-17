@@ -14,6 +14,8 @@ import {
 } from "./git.js";
 import { runFixLoop } from "../agent/fixer.js";
 import { createProvider } from "../agent/factory.js";
+import { runStaticAnalysis } from "./verify.js";
+import { detectSuspiciousChanges } from "./change-detector.js";
 
 export interface RunOptions {
   cwd: string;
@@ -65,6 +67,8 @@ export interface RunSummary {
   usage: { inputTokens: number; outputTokens: number };
   editedFiles: string[];
   testFilesTouched: string[];
+  suspiciousChanges?: string[];
+  staticAnalysisWarnings?: string[];
   diffStat?: string;
   fullDiff?: string;
   durationMs: number;
@@ -235,13 +239,39 @@ export async function run(opts: RunOptions): Promise<RunSummary> {
   summary.usage = fix.usage;
   summary.editedFiles = fix.editedFiles;
   summary.testFilesTouched = fix.editedFiles.filter((f) => /(^|\/)(test|tests|__tests__|spec)(\/|\.)|\.(test|spec)\./i.test(f));
+
+  // Run static analysis (TypeScript + ESLint)
+  log("running static analysis…");
+  const staticResults = await runStaticAnalysis(cwd, { strictLint: false });
+  const typesFailed = staticResults.some(r => r.stage === "types" && !r.passed);
+
+  if (typesFailed) {
+    log("⚠️  TypeScript type check failed after fix");
+    summary.needsReview = true;
+    summary.staticAnalysisWarnings = staticResults
+      .filter(r => !r.passed)
+      .flatMap(r => r.warnings || []);
+  }
+
+  // Detect suspicious changes
+  const suspiciousChanges = await detectSuspiciousChanges(cwd);
+  const criticalChanges = suspiciousChanges.filter(c => c.severity === "critical");
+
+  if (criticalChanges.length > 0) {
+    log("⚠️  Suspicious changes detected (test modifications, large deletions)");
+    summary.needsReview = true;
+    summary.suspiciousChanges = suspiciousChanges.map(c =>
+      `${c.type}: ${c.file} - ${c.description}`
+    );
+  }
+
   summary.needsReview = computeNeedsReview({
     unverifiable: false,
     neededFix: true,
     fixed: fix.fixed,
     testFilesTouched: summary.testFilesTouched,
     budgetExceeded: fix.budgetExceeded,
-  });
+  }) || summary.needsReview; // Preserve needsReview if already set by static analysis or suspicious changes
 
   await maybeCommit(cwd, summary, fix.fixed);
   summary.durationMs = Date.now() - startedAt;

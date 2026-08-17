@@ -11,3 +11,4 @@ dist/
 # example repos install their own deps during e2e runs
 examples/**/node_modules/
 examples/**/package-lock.json
+多模态强化工具/
