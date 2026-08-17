@@ -327,6 +327,165 @@ greenbump auto-detects the ecosystem from your project's lockfile/manifest. Run 
 
 ---
 
+## 🏗️ Architecture
+
+### System Overview
+
+```mermaid
+graph TB
+    subgraph "User Input"
+        CLI[CLI Command<br/>npx greenbump react]
+    end
+
+    subgraph "Detection Layer"
+        DETECT[Ecosystem Detector<br/>Auto-detect: npm, pip, cargo, etc.]
+        OUTDATED[Dependency Scanner<br/>Find outdated packages]
+    end
+
+    subgraph "Isolation Layer"
+        GIT[Git Branch Manager<br/>greenbump/dep-version]
+        BASELINE[Baseline Runner<br/>Ensure tests pass before upgrade]
+    end
+
+    subgraph "Upgrade Layer"
+        INSTALL[Package Manager<br/>Install new version]
+        CHECK[Verification Runner<br/>Run build + tests]
+    end
+
+    subgraph "AI Fix Layer"
+        AGENT[LLM Agent<br/>Claude/OpenAI/DeepSeek]
+        TOOLS[Agent Tools<br/>read_file, write_file, run_check]
+        CHANGELOG[Changelog Fetcher<br/>npm/PyPI/crates.io]
+    end
+
+    subgraph "Verification Layer"
+        STATIC[Static Analysis<br/>TypeScript + ESLint]
+        CHANGE[Change Detection<br/>Test mods, large deletions]
+        GRAPH[Dependency Graph<br/>Multi-stage fixes]
+    end
+
+    subgraph "Sandbox Layer (Optional)"
+        DOCKER[Docker Builder<br/>Generate Dockerfile]
+        SERVICES[Service Manager<br/>postgres, redis, mongodb]
+        CONTAINER[Container Runner<br/>Isolated test execution]
+    end
+
+    subgraph "Performance Layer (Optional)"
+        PERF[Performance Tracker<br/>Build time, bundle size]
+        COMPARE[Regression Detector<br/>Compare baseline vs current]
+    end
+
+    subgraph "Output"
+        COMMIT[Git Commit<br/>Staged changes]
+        PR[PR Body Generator<br/>Summary + token usage]
+    end
+
+    CLI --> DETECT
+    DETECT --> OUTDATED
+    OUTDATED --> GIT
+    GIT --> BASELINE
+    BASELINE --> INSTALL
+    INSTALL --> CHECK
+    CHECK -->|Fails| AGENT
+    CHECK -->|Passes| STATIC
+    
+    AGENT --> TOOLS
+    AGENT --> CHANGELOG
+    TOOLS --> CHECK
+    
+    STATIC --> CHANGE
+    CHANGE --> GRAPH
+    GRAPH --> DOCKER
+    
+    DOCKER --> SERVICES
+    SERVICES --> CONTAINER
+    CONTAINER --> PERF
+    
+    PERF --> COMPARE
+    COMPARE --> COMMIT
+    COMMIT --> PR
+
+    style CLI fill:#a8e6cf
+    style AGENT fill:#ffd3b6
+    style DOCKER fill:#aad3ea
+    style PR fill:#ffaaa5
+```
+
+### Component Breakdown
+
+| Layer | Components | Purpose |
+|-------|-----------|---------|
+| **Detection** | Ecosystem Detector, Dependency Scanner | Auto-detect package manager and find outdated deps |
+| **Isolation** | Git Branch Manager, Baseline Runner | Isolate work on feature branch, verify starting state |
+| **Upgrade** | Package Manager, Verification Runner | Install new version and run checks |
+| **AI Fix** | LLM Agent, Tools, Changelog Fetcher | Automatically fix breaking changes with AI |
+| **Verification** | Static Analysis, Change Detection, Dependency Graph | Multi-layer validation (types, lints, suspicious changes) |
+| **Sandbox** | Docker Builder, Service Manager, Container Runner | Optional isolated testing with database services |
+| **Performance** | Performance Tracker, Regression Detector | Optional performance monitoring and regression alerts |
+| **Output** | Git Commit, PR Body Generator | Commit changes and generate PR description |
+
+### Data Flow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant CLI
+    participant Detector
+    participant Git
+    participant PackageMgr as Package Manager
+    participant Agent as AI Agent
+    participant Verifier
+    participant Docker
+    participant Output
+
+    User->>CLI: npx greenbump react
+    CLI->>Detector: Detect ecosystem
+    Detector-->>CLI: npm detected
+    CLI->>Detector: Find outdated packages
+    Detector-->>CLI: react 18.3.1 → 19.2.0
+    
+    CLI->>Git: Create branch
+    Git-->>CLI: greenbump/react-19.2.0
+    
+    CLI->>PackageMgr: Run baseline tests
+    PackageMgr-->>CLI: ✓ Baseline passed
+    
+    CLI->>PackageMgr: Install react@19.2.0
+    PackageMgr-->>CLI: ✓ Installed
+    
+    CLI->>PackageMgr: Run tests
+    PackageMgr-->>CLI: ✗ Tests failed
+    
+    CLI->>Agent: Fix breaking changes
+    loop Fix Loop
+        Agent->>Agent: Read error output
+        Agent->>Agent: Fetch changelog
+        Agent->>Agent: Edit source files
+        Agent->>PackageMgr: Re-run tests
+        PackageMgr-->>Agent: Test result
+    end
+    Agent-->>CLI: ✓ Fixed
+    
+    CLI->>Verifier: Run verification
+    Verifier->>Verifier: TypeScript check
+    Verifier->>Verifier: ESLint
+    Verifier->>Verifier: Change detection
+    Verifier-->>CLI: ✓ Verified
+    
+    alt Sandbox Mode
+        CLI->>Docker: Build container
+        Docker->>Docker: Start services (postgres)
+        Docker->>Docker: Run tests in container
+        Docker-->>CLI: ✓ Container tests passed
+    end
+    
+    CLI->>Output: Commit changes
+    Output->>Output: Generate PR body
+    Output-->>User: ✓ Done: branch ready for PR
+```
+
+---
+
 ## 🎭 How It Works
 
 ```mermaid
