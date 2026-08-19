@@ -12,13 +12,16 @@ import {
   diffStat,
   fullDiff,
 } from "./git.js";
-import { runFixLoop } from "../agent/fixer.js";
+import { runFixLoop, type FixDecision, type FixSuggestion } from "../agent/fixer.js";
 import { createProvider } from "../agent/factory.js";
 import { runStaticAnalysis } from "./verify.js";
 import { detectSuspiciousChanges } from "./change-detector.js";
 import { runInSandbox } from "./sandbox/orchestrator.js";
 import { captureBaseline, loadBaseline } from "./perf/metrics.js";
 import { comparePerformance, displayPerformanceComparison, hasRegressions } from "./perf/regression.js";
+import { analyzeApiChanges, readFromGitHead } from "./verifiers/ast-analyzer.js";
+import { digestChangelog, renderDigestForPrompt } from "./analyzers/changelog-parser.js";
+import { getCache } from "./cache/manager.js";
 
 export interface RunOptions {
   cwd: string;
@@ -54,6 +57,16 @@ export interface RunOptions {
   keepContainer?: boolean;
   /** check for performance regressions after upgrade */
   detectRegressions?: boolean;
+  /** disable the free fix tiers (codemods/patterns/cache), go straight to the LLM */
+  noFreeTiers?: boolean;
+  /** disable the changelog/LLM-response cache */
+  noCache?: boolean;
+  /** interactive mode: confirm each AI-proposed edit before applying */
+  interactive?: boolean;
+  /** callback invoked for each proposed edit in interactive mode */
+  onFixSuggestion?: (suggestion: FixSuggestion) => Promise<FixDecision>;
+  /** run AST-level API-surface analysis after the fix */
+  astAnalysis?: boolean;
 }
 
 export interface RunSummary {
@@ -88,6 +101,12 @@ export interface RunSummary {
     detected: boolean;
     details: string[];
   };
+  /** which tier produced the fix (1=codemod, 2=learned pattern, 3=cached, 4=llm) */
+  fixedByTier?: number;
+  /** true when a cache hit saved an LLM call entirely */
+  cacheHit?: boolean;
+  /** AST-level API surface changes detected after the fix */
+  apiChanges?: string[];
   diffStat?: string;
   fullDiff?: string;
   durationMs: number;
@@ -236,7 +255,7 @@ export async function run(opts: RunOptions): Promise<RunSummary> {
 
   // 7. broke — fetch changelog context, then run the fix agent
   summary.neededFix = true;
-  const changelog = await fetchChangelog(target.name, from, to);
+  let changelog = await fetchChangelog(target.name, from, to);
   if (changelog) log(`found changelog/release notes for ${target.name}`);
 
   const provider = createProvider({
@@ -245,6 +264,26 @@ export async function run(opts: RunOptions): Promise<RunSummary> {
     baseURL: opts.baseURL,
     apiKey: opts.apiKey,
   });
+
+  // Deep-digest the changelog once (cached per upgrade path) — replaces the
+  // raw changelog with a compact breaking-change checklist in the fix prompt.
+  // Best-effort: any digest failure (bad key, offline, unparseable) falls
+  // back to the raw changelog — the digest is an optimization, not a gate.
+  if (changelog && !opts.noCache) {
+    try {
+      const digest = await digestChangelog(provider, target.name, from, to, changelog);
+      if (digest && digest.breakingChanges.length > 0) {
+        log(
+          `changelog digest: ${digest.breakingChanges.length} breaking change(s) extracted` +
+            (digest.fromCache ? " (from cache)" : ` (${digest.tokensUsed.inputTokens} tokens)`),
+        );
+        changelog = renderDigestForPrompt(digest) + `\n\nRaw release notes:\n${changelog.slice(0, 2000)}`;
+      }
+    } catch (err) {
+      log(`changelog digest skipped (${(err as Error).message.slice(0, 80)})`);
+    }
+  }
+
   log(`upgrade broke ${post.failedStep} — starting fix loop via ${provider.name} (${provider.model})`);
   const fix = await runFixLoop({
     cwd,
@@ -259,11 +298,20 @@ export async function run(opts: RunOptions): Promise<RunSummary> {
     failureOutput: post.output,
     changelog,
     onLog: log,
+    noFreeTiers: opts.noFreeTiers,
+    noCache: opts.noCache,
+    onFixSuggestion: opts.interactive ? opts.onFixSuggestion : undefined,
   });
   summary.fixed = fix.fixed;
   summary.rounds = fix.rounds;
   summary.usage = fix.usage;
   summary.editedFiles = fix.editedFiles;
+  summary.fixedByTier = fix.fixedByTier;
+  summary.cacheHit = fix.cacheHit;
+  if (fix.fixedByTier && fix.fixedByTier < 4) {
+    const tierNames = ["", "codemod", "learned pattern", "cached fix"];
+    log(`fixed by tier ${fix.fixedByTier} (${tierNames[fix.fixedByTier]}) — 0 tokens spent`);
+  }
   summary.testFilesTouched = fix.editedFiles.filter((f) => /(^|\/)(test|tests|__tests__|spec)(\/|\.)|\.(test|spec)\./i.test(f));
 
   // Run static analysis (TypeScript + ESLint)
@@ -289,6 +337,27 @@ export async function run(opts: RunOptions): Promise<RunSummary> {
     summary.suspiciousChanges = suspiciousChanges.map(c =>
       `${c.type}: ${c.file} - ${c.description}`
     );
+  }
+
+  // AST-level API surface analysis (did the fix quietly change OUR exports?)
+  if (opts.astAnalysis !== false && fix.fixed && fix.editedFiles.length > 0) {
+    log("analyzing API surface changes…");
+    const astResult = await analyzeApiChanges(
+      cwd,
+      fix.editedFiles,
+      (p) => readFromGitHead(cwd, p),
+    );
+    if (astResult.changes.length > 0) {
+      log(`⚠️  API surface: ${astResult.summary}`);
+      summary.apiChanges = astResult.changes.map(
+        (c) => `[${c.severity}] ${c.file}: ${c.detail}`,
+      );
+      if (astResult.hasCritical) {
+        summary.needsReview = true;
+      }
+    } else {
+      log("API surface: no changes to exported symbols");
+    }
   }
 
   // Sandbox verification (if enabled)

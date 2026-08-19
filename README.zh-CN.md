@@ -245,6 +245,31 @@ npx greenbump react react-dom --group react-upgrade
 | `--keep-container` | 运行结束后保留 Docker 容器，便于调试。 |
 | `--detect-regressions` | 检测性能回归（构建时间、包体积等）。 |
 
+### 成本与信任（v0.6.0+）
+
+| 参数 | 说明 |
+|---|---|
+| `-i`, `--interactive` | 交互模式：每个 AI 提议的修改以彩色 diff 展示，确认后才写入。接受（`y`）、拒绝（`n`）、跳过（`s`）、全部接受（`a`）或手动编辑（`e`）。 |
+| `--no-free-tiers` | 跳过免费修复层级（codemod / 学习模式 / 缓存），直接调用 LLM。 |
+| `--no-cache` | 完全禁用 changelog / 修复缓存。 |
+| `--no-ast-analysis` | 禁用修复后的 API 表面分析（导出删除、签名变更、新增 `any`）。 |
+| `--list-codemods` | 列出所有内置免费 codemod 并退出。 |
+| `--cache-stats` | 显示缓存条目数、体积及分类统计。 |
+| `--cache-clear [category]` | 清除缓存条目（`changelogs`、`llm-fixes`、`patterns`；省略则全部清除）。 |
+
+#### 分层修复策略如何降低成本
+
+升级导致构建失败时，greenbump 按成本从低到高依次尝试四个修复层级：
+
+| 层级 | 策略 | 成本 |
+|---|---|---|
+| 1 | **内置 codemod** —— 针对知名 Breaking Change 的正则转换（React 18→19、Vue 2→3 等） | 0 token |
+| 2 | **学习模式** —— 历史成功修复提炼为可复用规则 | 0 token |
+| 3 | **缓存的 LLM 修复** —— 相同的失败上下文直接重放之前的修复 | 0 token |
+| 4 | **LLM 修复循环** —— 完整的 AI 代理，仅在前三层未命中时启用 | 付费 |
+
+端到端验证：React 18→19 升级（`ReactDOM.render` → `createRoot`）由第 1 层修复，**消耗 0 输入 / 0 输出 token**。成功的 LLM 修复会被学习进缓存，因此跨项目的重复失败同样免费。
+
 ### Git
 
 | 参数 | 说明 |

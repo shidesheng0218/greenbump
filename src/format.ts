@@ -51,6 +51,13 @@ export function printSummaryBox(summary: RunSummary, write: (s: string) => void)
         `${pc.dim("tokens")}           ${summary.usage.inputTokens.toLocaleString()} in / ${summary.usage.outputTokens.toLocaleString()} out`,
       ),
     );
+
+    // Show which tier fixed it — the key cost signal for v0.6.0
+    if (summary.fixedByTier && summary.fixedByTier < 4) {
+      const tierNames = ["", "codemod (free)", "learned pattern (free)", "cached fix (free)"];
+      write(bar(`${pc.dim("fixed by")}        ${pc.green(tierNames[summary.fixedByTier])}`));
+    }
+
     write(bar(`${pc.dim("files edited")}     ${summary.editedFiles.length}`));
     for (const f of summary.editedFiles.slice(0, 6)) write(bar(`  ${pc.cyan("·")} ${f}`));
     if (summary.editedFiles.length > 6) write(bar(`  ${pc.dim(`… +${summary.editedFiles.length - 6} more`)}`));
@@ -80,6 +87,17 @@ export function printSummaryBox(summary: RunSummary, write: (s: string) => void)
       }
       if (summary.staticAnalysisWarnings.length > 3) {
         write(bar(`  ${pc.dim(`… +${summary.staticAnalysisWarnings.length - 3} more`)}`));
+      }
+    }
+
+    if (summary.apiChanges && summary.apiChanges.length > 0) {
+      write(bar(""));
+      write(bar(pc.yellow(`⚠ API surface changes (exports affected):`)));
+      for (const change of summary.apiChanges.slice(0, 5)) {
+        write(bar(`  ${pc.yellow("·")} ${change}`));
+      }
+      if (summary.apiChanges.length > 5) {
+        write(bar(`  ${pc.dim(`… +${summary.apiChanges.length - 5} more`)}`));
       }
     }
   }

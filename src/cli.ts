@@ -12,6 +12,9 @@ import { exitCodeFor, overallExitCode } from "./exitcode.js";
 import { buildReport, writeReport } from "./report.js";
 import { detectOutdatedAll, WORKSPACE_ROOT } from "./engine/workspace.js";
 import { detectPackageManager } from "./engine/pm.js";
+import { createInteractiveHandler } from "./cli/interactive.js";
+import { listBuiltinCodemods } from "./engine/fixer/patterns.js";
+import { getCache } from "./engine/cache/manager.js";
 
 const program = new Command();
 
@@ -46,11 +49,43 @@ program
   .option("--services <services>", "comma-separated list of services to start (postgres,redis,mongodb)")
   .option("--keep-container", "keep Docker container after run for debugging")
   .option("--detect-regressions", "check for performance regressions after upgrade")
+  .option("-i, --interactive", "confirm each AI-proposed edit before applying (y/n/e/s/a)")
+  .option("--no-free-tiers", "skip codemods/patterns/cache and go straight to the LLM")
+  .option("--no-cache", "disable changelog + LLM-response caching")
+  .option("--list-codemods", "list built-in free codemods and exit")
+  .option("--cache-stats", "show cache statistics and exit")
+  .option("--cache-clear [category]", "clear the cache (changelogs, llm-fixes, patterns) and exit")
+  .option("--no-ast-analysis", "disable post-fix API surface analysis")
   .action(async (deps, opts) => {
     if (opts.listProviders) {
       console.log("Built-in provider presets:\n" + listProviders());
       console.log("\nSet the matching env var (or pass --api-key), then run greenbump.");
       console.log("Any other OpenAI-compatible service: --base-url <url> --model <id> --api-key <key>");
+      process.exit(0);
+    }
+
+    if (opts.listCodemods) {
+      console.log("Built-in free codemods (applied before any LLM call):\n" + listBuiltinCodemods());
+      process.exit(0);
+    }
+
+    if (opts.cacheStats) {
+      const cache = getCache();
+      await cache.init();
+      const stats = await cache.stats();
+      console.log(`Cache: ${stats.entries} entries, ${(stats.sizeBytes / 1024 / 1024).toFixed(1)} MB`);
+      for (const [cat, s] of Object.entries(stats.byCategory)) {
+        console.log(`  ${cat}: ${s.entries} entries, ${(s.sizeBytes / 1024).toFixed(1)} KB`);
+      }
+      process.exit(0);
+    }
+
+    if (opts.cacheClear !== undefined) {
+      const cache = getCache();
+      await cache.init();
+      const category = typeof opts.cacheClear === "string" ? opts.cacheClear : undefined;
+      await cache.clear(category);
+      console.log(pc.green(`✓ Cleared cache${category ? ` (${category})` : ""}.`));
       process.exit(0);
     }
 
@@ -112,6 +147,13 @@ program
       console.error(`  ${elapsed} ${pc.dim(m)}`);
     };
     const cwd = opts.cwd ? resolve(opts.cwd) : process.cwd();
+
+    // Interactive mode: wire up the readline-based confirmation handler.
+    let interactive: ReturnType<typeof createInteractiveHandler> | undefined;
+    if (opts.interactive) {
+      interactive = createInteractiveHandler();
+    }
+
     const baseOpts = {
       cwd,
       ecosystem: opts.ecosystem,
@@ -129,6 +171,11 @@ program
       services: opts.services ? opts.services.split(",").map((s: string) => s.trim()) : undefined,
       keepContainer: opts.keepContainer,
       detectRegressions: opts.detectRegressions,
+      noFreeTiers: opts.freeTiers === false,
+      noCache: opts.cache === false,
+      interactive: opts.interactive,
+      onFixSuggestion: interactive?.handler,
+      astAnalysis: opts.astAnalysis !== false,
     };
 
     const isBatch = opts.all || deps.length > 1;
@@ -153,6 +200,7 @@ program
           await writeReport(opts.reportFile, buildReport(results));
         }
 
+        interactive?.close();
         process.exit(overallExitCode(results));
       }
 
@@ -173,8 +221,10 @@ program
         await writeReport(opts.reportFile, buildReport([summary]));
       }
 
+      interactive?.close();
       process.exit(exitCodeFor(summary));
     } catch (err) {
+      interactive?.close();
       console.error("");
       if (err instanceof RunError) {
         console.error(pc.red(`✗ ${err.message}`));

@@ -3,6 +3,22 @@ import { resolve, relative, isAbsolute, join } from "node:path";
 import { runChecks, type CheckOverrides } from "../engine/checks.js";
 import { getAdapter, type PackageManager } from "../engine/pm.js";
 import type { Msg, Provider, ToolSpec, TurnResult } from "./provider.js";
+import { getCache } from "../engine/cache/manager.js";
+import {
+  tryBuiltinCodemods,
+  tryLearnedPatterns,
+  tryCachedLlmFix,
+  learnFromSuccessfulFix,
+  buildContextKey,
+  FixTier,
+} from "../engine/fixer/patterns.js";
+import {
+  trimFailureOutput,
+  extractCandidateFiles,
+  findRelatedTests,
+  buildCandidateHint,
+  estimateTokens,
+} from "../engine/context/optimizer.js";
 
 export interface FixResult {
   fixed: boolean;
@@ -12,6 +28,10 @@ export interface FixResult {
   editedFiles: string[];
   /** true when the loop stopped early because it hit `maxTokens`, not because it ran out of rounds */
   budgetExceeded: boolean;
+  /** which tier produced the fix (1=regex, 2=rule, 3=cached, 4=llm, 0=no fix needed) */
+  fixedByTier?: number;
+  /** true when a cache hit saved an LLM call */
+  cacheHit?: boolean;
 }
 
 export interface FixDep {
@@ -20,6 +40,22 @@ export interface FixDep {
   to: string;
   changelog?: string | null;
 }
+
+/** A proposed file edit surfaced to the user in interactive mode. */
+export interface FixSuggestion {
+  path: string;
+  /** unified-ish diff for display */
+  diff: string;
+  /** one-line summary from the agent */
+  summary?: string;
+}
+
+/** Interactive-mode decision returned by the onFixSuggestion callback. */
+export type FixDecision =
+  | { action: "accept" }
+  | { action: "reject" }
+  | { action: "skip" }
+  | { action: "edit"; content: string };
 
 export interface FixOptions {
   cwd: string;
@@ -45,6 +81,16 @@ export interface FixOptions {
   /** release notes / changelog for the target version, if we found any */
   changelog?: string | null;
   onLog?: (msg: string) => void;
+  /** disable the pattern/codomod/cache tiers and go straight to the LLM */
+  noFreeTiers?: boolean;
+  /** disable response caching (read + write) */
+  noCache?: boolean;
+  /**
+   * Interactive mode: called before each write_file is applied.
+   * Return accept to apply, reject to discard, skip to skip this file,
+   * or edit to supply replacement content. If unset, edits apply directly.
+   */
+  onFixSuggestion?: (suggestion: FixSuggestion) => Promise<FixDecision>;
 }
 
 function buildSystemPrompt(pm: PackageManager, deps?: FixDep[]): string {
@@ -192,13 +238,32 @@ async function searchCode(cwd: string, root: string, query: string): Promise<str
   return results.join("\n") + suffix;
 }
 
+/** Build a simple unified diff for interactive display. */
+function simpleDiff(path: string, oldContent: string, newContent: string): string {
+  const oldLines = oldContent.split("\n");
+  const newLines = newContent.split("\n");
+  const out: string[] = [`--- a/${path}`, `+++ b/${path}`];
+  const max = Math.max(oldLines.length, newLines.length);
+  let shown = 0;
+  for (let i = 0; i < max && shown < 60; i++) {
+    const o = oldLines[i];
+    const n = newLines[i];
+    if (o === n) continue;
+    if (o !== undefined) { out.push(`-${o}`); shown++; }
+    if (n !== undefined) { out.push(`+${n}`); shown++; }
+  }
+  if (shown === 0) out.push("(content changed)");
+  return out.join("\n");
+}
+
 async function toolResult(
   cwd: string,
   pm: PackageManager,
   checkOverrides: CheckOverrides | undefined,
   name: string,
   input: any,
-): Promise<{ text: string; checkOk?: boolean }> {
+  onFixSuggestion?: FixOptions["onFixSuggestion"],
+): Promise<{ text: string; checkOk?: boolean; skipped?: boolean }> {
   switch (name) {
     case "list_dir": {
       const abs = safePath(cwd, input.path ?? ".");
@@ -220,7 +285,34 @@ async function toolResult(
     }
     case "write_file": {
       const abs = safePath(cwd, input.path);
-      await writeFile(abs, input.content, "utf8");
+      let content = input.content as string;
+
+      // Interactive gate: show the proposed edit and wait for a decision.
+      if (onFixSuggestion) {
+        let oldContent = "";
+        try {
+          oldContent = await readFile(abs, "utf8");
+        } catch {
+          // new file
+        }
+        const decision = await onFixSuggestion({
+          path: input.path,
+          diff: simpleDiff(input.path, oldContent, content),
+        });
+        switch (decision.action) {
+          case "reject":
+            return { text: `edit to ${input.path} REJECTED by user — do not retry the same change`, skipped: true };
+          case "skip":
+            return { text: `edit to ${input.path} skipped by user`, skipped: true };
+          case "edit":
+            content = decision.content;
+            break;
+          case "accept":
+            break;
+        }
+      }
+
+      await writeFile(abs, content, "utf8");
       return { text: `wrote ${input.path}` };
     }
     case "run_check": {
@@ -274,6 +366,77 @@ export async function runFixLoop(opts: FixOptions): Promise<FixResult> {
   const editedFiles = new Set<string>();
   const SYSTEM = buildSystemPrompt(pm, opts.deps);
 
+  // ── Context optimization: trim failure output, find candidate files ──────
+  const trimmedFailure = trimFailureOutput(opts.failureOutput);
+  if (trimmedFailure.length < opts.failureOutput.length) {
+    log(`context: trimmed failure output ${opts.failureOutput.length} → ${trimmedFailure.length} chars`);
+  }
+  const candidateFiles = await extractCandidateFiles(trimmedFailure, opts.cwd);
+  const relatedTests = await findRelatedTests(candidateFiles, opts.cwd);
+  const candidateHint = buildCandidateHint(candidateFiles, relatedTests);
+  if (candidateFiles.length > 0) {
+    log(`context: identified ${candidateFiles.length} file(s) referenced by the failure`);
+  }
+
+  const primaryDep = opts.deps?.[0]?.dep ?? opts.dep;
+  const primaryFrom = opts.deps?.[0]?.from ?? opts.from;
+  const primaryTo = opts.deps?.[0]?.to ?? opts.to;
+  const contextKey = buildContextKey(primaryDep, primaryFrom, primaryTo, trimmedFailure);
+
+  // ── Free tiers: codemods → learned patterns → cached LLM fix ────────────
+  if (!opts.noFreeTiers) {
+    const patternCtx = {
+      cwd: opts.cwd,
+      packageName: primaryDep,
+      fromVersion: primaryFrom,
+      toVersion: primaryTo,
+      failureOutput: trimmedFailure,
+      candidateFiles: candidateFiles.length > 0 ? candidateFiles : ["."],
+    };
+
+    // Tier 1: built-in codemods
+    const t1 = await tryBuiltinCodemods(patternCtx);
+    if (t1.applied) {
+      log(`tier 1 (codemod): applied — ${t1.description}`);
+      const check = await runChecks(pm, opts.cwd, checkOverrides);
+      if (check.ok) {
+        log("tier 1 (codemod): check passed — fixed with 0 tokens");
+        return tierResult(true, t1.editedFiles, FixTier.REGEX);
+      }
+      log("tier 1 (codemod): edit applied but check still failing — escalating");
+      for (const f of t1.editedFiles) editedFiles.add(f);
+    }
+
+    // Tier 2: learned patterns from cache
+    if (!opts.noCache) {
+      const t2 = await tryLearnedPatterns(patternCtx);
+      if (t2.applied) {
+        log(`tier 2 (learned pattern): applied — ${t2.description}`);
+        const check = await runChecks(pm, opts.cwd, checkOverrides);
+        if (check.ok) {
+          log("tier 2 (learned pattern): check passed — fixed with 0 tokens");
+          return tierResult(true, [...editedFiles, ...t2.editedFiles], FixTier.RULE, true);
+        }
+        log("tier 2 (learned pattern): edit applied but check still failing — escalating");
+        for (const f of t2.editedFiles) editedFiles.add(f);
+      }
+
+      // Tier 3: cached LLM fix for identical failure
+      const t3 = await tryCachedLlmFix(patternCtx, contextKey);
+      if (t3.applied) {
+        log(`tier 3 (cached fix): applied — ${t3.description}`);
+        const check = await runChecks(pm, opts.cwd, checkOverrides);
+        if (check.ok) {
+          log("tier 3 (cached fix): check passed — fixed with 0 tokens");
+          return tierResult(true, [...editedFiles, ...t3.editedFiles], FixTier.CACHED, true);
+        }
+        log("tier 3 (cached fix): didn't resolve in this project — escalating to LLM");
+        for (const f of t3.editedFiles) editedFiles.add(f);
+      }
+    }
+  }
+
+  // ── Tier 4: LLM fix loop ────────────────────────────────────────────────
   const upgradeSummary =
     opts.deps && opts.deps.length > 1
       ? opts.deps.map((d) => `\`${d.dep}\` from ${d.from} to ${d.to}`).join(", ")
@@ -287,23 +450,28 @@ export async function runFixLoop(opts: FixOptions): Promise<FixResult> {
       ? `\n\nHere are the release notes for ${opts.dep}@${opts.to} — use them to find the correct migration:\n\n${opts.changelog}`
       : "";
 
-  const messages: Msg[] = [
-    {
-      role: "user",
-      text: `The dependenc${opts.deps && opts.deps.length > 1 ? "ies" : "y"} ${upgradeSummary} ${opts.deps && opts.deps.length > 1 ? "were" : "was"} upgraded.
+  const initialPrompt = `The dependenc${opts.deps && opts.deps.length > 1 ? "ies" : "y"} ${upgradeSummary} ${opts.deps && opts.deps.length > 1 ? "were" : "was"} upgraded.
 This broke the project. Here is the failing output:
 
 \`\`\`
-${opts.failureOutput}
-\`\`\`${changelogBlock}
+${trimmedFailure}
+\`\`\`${changelogBlock}${candidateHint}
 
-Fix the source code so build and tests pass. Call run_check to verify before finishing.`,
+Fix the source code so build and tests pass. Call run_check to verify before finishing.`;
+
+  const messages: Msg[] = [
+    {
+      role: "user",
+      text: initialPrompt,
     },
   ];
+
+  log(`context: ~${estimateTokens(initialPrompt)} tokens in initial prompt`);
 
   let fixed = false;
   let budgetExceeded = false;
   let round = 0;
+  const llmEditedFiles = new Set<string>();
 
   for (round = 1; round <= opts.maxRounds; round++) {
     const remaining = opts.maxRounds - round + 1;
@@ -334,11 +502,11 @@ Fix the source code so build and tests pass. Call run_check to verify before fin
     const results = [];
     for (const tc of turn.toolCalls) {
       if (tc.name === "write_file") {
-        editedFiles.add((tc.input as any).path);
+        llmEditedFiles.add((tc.input as any).path);
       }
-      let out: { text: string; checkOk?: boolean };
+      let out: { text: string; checkOk?: boolean; skipped?: boolean };
       try {
-        out = await toolResult(opts.cwd, pm, checkOverrides, tc.name, tc.input);
+        out = await toolResult(opts.cwd, pm, checkOverrides, tc.name, tc.input, opts.onFixSuggestion);
       } catch (err) {
         out = { text: `error: ${(err as Error).message}` };
       }
@@ -359,6 +527,24 @@ Fix the source code so build and tests pass. Call run_check to verify before fin
     }
   }
 
+  // Learn from a successful LLM fix so the next identical failure is free.
+  if (fixed && !opts.noCache) {
+    const allEdited = [...editedFiles, ...llmEditedFiles];
+    await learnFromSuccessfulFix(
+      {
+        cwd: opts.cwd,
+        packageName: primaryDep,
+        fromVersion: primaryFrom,
+        toVersion: primaryTo,
+        failureOutput: trimmedFailure,
+        candidateFiles,
+      },
+      contextKey,
+      allEdited,
+      provider.model,
+    ).catch(() => {});
+  }
+
   return {
     fixed,
     // `round` overshoots by 1 when the for-loop exhausts naturally (its
@@ -367,7 +553,26 @@ Fix the source code so build and tests pass. Call run_check to verify before fin
     rounds: Math.min(round, opts.maxRounds),
     unverifiable: false,
     usage,
-    editedFiles: [...editedFiles],
+    editedFiles: [...editedFiles, ...llmEditedFiles],
     budgetExceeded,
+    fixedByTier: fixed ? FixTier.LLM : undefined,
+  };
+}
+
+function tierResult(
+  fixed: boolean,
+  editedFiles: string[],
+  tier: FixTier,
+  cacheHit = false,
+): FixResult {
+  return {
+    fixed,
+    rounds: 0,
+    unverifiable: false,
+    usage: { inputTokens: 0, outputTokens: 0 },
+    editedFiles,
+    budgetExceeded: false,
+    fixedByTier: tier,
+    cacheHit,
   };
 }

@@ -262,6 +262,31 @@ npx greenbump react react-dom --group react-upgrade
 | `--keep-container` | Keep Docker container after run for debugging. |
 | `--detect-regressions` | Check for performance regressions (build time, bundle size, etc.). |
 
+### Cost & Trust (v0.6.0+)
+
+| Flag | Description |
+|---|---|
+| `-i`, `--interactive` | Review each AI-proposed edit as a colored diff before it is written. Accept (`y`), reject (`n`), skip (`s`), accept-all (`a`), or hand-edit (`e`). |
+| `--no-free-tiers` | Skip the free fix tiers (codemods / learned patterns / cache) and go straight to the LLM. |
+| `--no-cache` | Disable the changelog / fix cache entirely. |
+| `--no-ast-analysis` | Disable post-fix API surface analysis (removed exports, signature changes, new `any`). |
+| `--list-codemods` | List the builtin free codemods and exit. |
+| `--cache-stats` | Show cache entry count, size, and per-category breakdown. |
+| `--cache-clear [category]` | Clear cached entries (`changelogs`, `llm-fixes`, `patterns`; all if omitted). |
+
+#### How the tiered fix strategy keeps costs down
+
+When an upgrade breaks the build, greenbump tries four escalating fix tiers — cheapest first:
+
+| Tier | Strategy | Cost |
+|---|---|---|
+| 1 | **Builtin codemods** — regex transforms for well-known breakages (React 18→19, Vue 2→3, …) | 0 tokens |
+| 2 | **Learned patterns** — past successful fixes distilled into reusable rules | 0 tokens |
+| 3 | **Cached LLM fixes** — identical failure context replays a previous fix | 0 tokens |
+| 4 | **LLM fix loop** — the full agent, only when tiers 1–3 miss | paid |
+
+Verified end-to-end: a React 18→19 upgrade (`ReactDOM.render` → `createRoot`) is fixed by tier 1 with **0 input / 0 output tokens**. Successful LLM fixes are learned into the cache, so repeat failures across projects are free too.
+
 ### Git
 
 | Flag | Description |

@@ -3,7 +3,65 @@
 All notable changes to this project are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased] - v0.5.0
+## [Unreleased] - v0.6.0
+
+### Added
+- **Tiered fix strategy** — four escalating fix tiers, cheapest first:
+  - **Tier 1 — builtin codemods** (free): regex-based transforms for well-known breaking
+    changes (React 18→19 `ReactDOM.render`→`createRoot`, Vue 2→3 `new Vue()`→`createApp`,
+    `assert.equal`→`strictEqual`, `jest.*`→`vi.*`). Applied and verified with zero LLM tokens.
+  - **Tier 2 — learned patterns** (free): successful past fixes are distilled into reusable
+    patterns keyed by normalized error signatures, reusable across projects.
+  - **Tier 3 — cached LLM fixes** (free): identical upgrade + failure context replays the
+    previously-learned file edits with no LLM call.
+  - **Tier 4 — LLM fix loop** (paid): unchanged agent loop, only reached when tiers 1–3 miss.
+- **Disk cache** (`~/.greenbump/cache`, override with `GREENBUMP_CACHE_DIR`):
+  - Content-addressed (sha256) entries with TTL; changelogs pinned to 1 year.
+  - Caches changelogs, changelog digests, learned fix patterns, and full LLM fixes.
+  - New CLI: `--cache-stats`, `--cache-clear [category]`, `--no-cache`.
+- **Context optimizer** for token reduction:
+  - Failure output is trimmed (node_modules frames, npm noise, passing-test lines dropped;
+    4000-char cap) before being sent to the model.
+  - Candidate files referenced by the failure (stack frames, `path:line:col`, webpack
+    errors) are extracted and passed as a hint — the model starts at the right files.
+- **Interactive mode** (`-i` / `--interactive`): review each AI-proposed edit as a colored
+  diff before it's written. Accept (`y`), reject (`n`), skip (`s`), accept-all (`a`), or
+  hand-edit (`e`) the proposed content. Rejections are fed back to the model.
+- **API surface analysis** (AST-level, on by default): after a fix, exported symbols of
+  edited TS/JS files are compared against `git HEAD` — removed exports (critical for
+  default exports), signature changes, and new `any` annotations are reported; critical
+  changes set `needsReview`. Disable with `--no-ast-analysis`.
+- **Changelog digest**: raw release notes are condensed by the LLM into a structured
+  breaking-change checklist (cached per upgrade path) before entering the fix prompt.
+  Best-effort — digest failures fall back to the raw changelog.
+- New CLI flags: `-i/--interactive`, `--no-free-tiers`, `--no-cache`, `--no-ast-analysis`,
+  `--list-codemods`, `--cache-stats`, `--cache-clear [category]`.
+- New modules:
+  - `src/engine/cache/manager.ts` (disk cache)
+  - `src/engine/fixer/patterns.ts` (codemods + learned patterns + cache replay)
+  - `src/engine/context/optimizer.ts` (failure trimming + candidate extraction)
+  - `src/engine/verifiers/ast-analyzer.ts` (API surface diffing)
+  - `src/engine/analyzers/changelog-parser.ts` (changelog digest)
+  - `src/cli/interactive.ts` (readline-based review loop)
+- 33 new tests (121 total): cache round-trip/TTL/eviction, codemod matching and
+  non-matching, context-key normalization, interactive accept/reject/edit, AST export
+  diffing, end-to-end cache replay across projects.
+
+### Changed
+- `FixResult` extended with `fixedByTier` (1–4) and `cacheHit`.
+- `RunSummary` extended with `fixedByTier`, `cacheHit`, and `apiChanges`.
+- Summary output now shows which tier produced the fix and flags free fixes as such.
+- Changelog digest failures are non-fatal (fall back to raw changelog).
+
+### Impact
+- **Zero-token fixes for known breakages**: React 18→19 verified end-to-end with
+  0 input / 0 output tokens (tier-1 codemod).
+- **Repeat fixes are free**: identical failures across projects replay from cache.
+- **Smaller prompts**: trimmed failure output + candidate-file hints reduce input tokens.
+- **Higher trust**: interactive mode + API surface analysis catch questionable edits
+  before they land.
+
+## [0.5.0] - 2026-08-18
 
 ### Added
 - **Docker sandbox isolation**: Run tests in isolated Docker containers with `--sandbox` flag
