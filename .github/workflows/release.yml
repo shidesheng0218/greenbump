@@ -29,8 +29,13 @@ jobs:
       - run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # Use the tag's CHANGELOG.md section as the release body instead of the
+      # generic template — keeps hand-written notes from being overwritten.
+      - name: Extract changelog section for this tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          awk "/^## .*${VERSION//./\\.}/{f=1;next} /^## /{if(f)exit} f" CHANGELOG.md > release-notes.md
+          [ -s release-notes.md ] || echo "See CHANGELOG.md for details." > release-notes.md
       - uses: softprops/action-gh-release@v2
         with:
-          generate_release_notes: true
-          body: |
-            See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/master/CHANGELOG.md) for details.
+          body_path: release-notes.md
