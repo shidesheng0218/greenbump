@@ -22,6 +22,7 @@ import { comparePerformance, displayPerformanceComparison, hasRegressions } from
 import { analyzeApiChanges, readFromGitHead } from "./verifiers/ast-analyzer.js";
 import { digestChangelog, renderDigestForPrompt } from "./analyzers/changelog-parser.js";
 import { getCache } from "./cache/manager.js";
+import { recordRun, type RunRecord } from "./stats/recorder.js";
 
 export interface RunOptions {
   cwd: string;
@@ -113,6 +114,25 @@ export interface RunSummary {
 }
 
 export class RunError extends Error {}
+
+/** Build the stats record for a finished run — shared by all three exit paths below. */
+function summaryToRecord(summary: RunSummary, model?: string): RunRecord {
+  return {
+    ts: Date.now(),
+    dep: summary.dep,
+    from: summary.from,
+    to: summary.to,
+    tier: summary.fixedByTier as 1 | 2 | 3 | 4 | undefined,
+    cacheHit: summary.cacheHit,
+    inputTokens: summary.usage.inputTokens,
+    outputTokens: summary.usage.outputTokens,
+    avoidedLlmCall: !!summary.fixedByTier && summary.fixedByTier < 4,
+    durationMs: summary.durationMs,
+    fixed: summary.fixed,
+    needsReview: summary.needsReview,
+    model,
+  };
+}
 
 /**
  * Pure decision logic for `needsReview`, split out so it's directly
@@ -242,6 +262,7 @@ export async function run(opts: RunOptions): Promise<RunSummary> {
     summary.needsReview = true;
     await maybeCommit(cwd, summary, true);
     summary.durationMs = Date.now() - startedAt;
+    await recordRun(summaryToRecord(summary), log);
     return summary;
   }
 
@@ -250,6 +271,7 @@ export async function run(opts: RunOptions): Promise<RunSummary> {
     log("clean upgrade — build + tests green with no code changes");
     await maybeCommit(cwd, summary, true);
     summary.durationMs = Date.now() - startedAt;
+    await recordRun(summaryToRecord(summary), log);
     return summary;
   }
 
@@ -415,6 +437,7 @@ export async function run(opts: RunOptions): Promise<RunSummary> {
 
   await maybeCommit(cwd, summary, fix.fixed);
   summary.durationMs = Date.now() - startedAt;
+  await recordRun(summaryToRecord(summary, provider.model), log);
   return summary;
 }
 

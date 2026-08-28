@@ -396,6 +396,9 @@ export async function runFixLoop(opts: FixOptions): Promise<FixResult> {
 
     // Tier 1: built-in codemods
     const t1 = await tryBuiltinCodemods(patternCtx);
+    if (t1.advice && t1.advice.length > 0) {
+      for (const a of t1.advice) log(`tier 1 (codemod): guidance — ${a}`);
+    }
     if (t1.applied) {
       log(`tier 1 (codemod): applied — ${t1.description}`);
       const check = await runChecks(pm, opts.cwd, checkOverrides);

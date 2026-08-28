@@ -6,6 +6,7 @@ import { fetchChangelog } from "./changelog.js";
 import { isGitRepo, isTreeClean, currentBranch, createBranch, commitAll, diffStat, fullDiff, checkout } from "./git.js";
 import { runFixLoop, type FixDep } from "../agent/fixer.js";
 import { createProvider } from "../agent/factory.js";
+import { recordRun, type RunRecord } from "./stats/recorder.js";
 import {
   detectOutdatedAll,
   resolveWorkspaceTarget,
@@ -191,6 +192,7 @@ async function runGrouped(
     summary.needsReview = true;
     await maybeCommitGroup(cwd, summary, depsSummary, true);
     summary.durationMs = Date.now() - startedAt;
+    await recordRun(summaryToGroupRecord(summary), log);
     return summary;
   }
 
@@ -198,6 +200,7 @@ async function runGrouped(
     log("clean group upgrade — build + tests green with no code changes");
     await maybeCommitGroup(cwd, summary, depsSummary, true);
     summary.durationMs = Date.now() - startedAt;
+    await recordRun(summaryToGroupRecord(summary), log);
     return summary;
   }
 
@@ -233,6 +236,8 @@ async function runGrouped(
   summary.rounds = fix.rounds;
   summary.usage = fix.usage;
   summary.editedFiles = fix.editedFiles;
+  summary.fixedByTier = fix.fixedByTier;
+  summary.cacheHit = fix.cacheHit;
   summary.testFilesTouched = fix.editedFiles.filter((f) =>
     /(^|\/)(test|tests|__tests__|spec)(\/|\.)|\.(test|spec)\./i.test(f),
   );
@@ -246,7 +251,27 @@ async function runGrouped(
 
   await maybeCommitGroup(cwd, summary, depsSummary, fix.fixed);
   summary.durationMs = Date.now() - startedAt;
+  await recordRun(summaryToGroupRecord(summary, provider.model), log);
   return summary;
+}
+
+/** Mirrors run.ts's summaryToRecord — kept local since runGrouped's summary uses a synthetic dep/to. */
+function summaryToGroupRecord(summary: RunSummary, model?: string): RunRecord {
+  return {
+    ts: Date.now(),
+    dep: summary.dep,
+    from: summary.from,
+    to: summary.to,
+    tier: summary.fixedByTier as 1 | 2 | 3 | 4 | undefined,
+    cacheHit: summary.cacheHit,
+    inputTokens: summary.usage.inputTokens,
+    outputTokens: summary.usage.outputTokens,
+    avoidedLlmCall: !!summary.fixedByTier && summary.fixedByTier < 4,
+    durationMs: summary.durationMs,
+    fixed: summary.fixed,
+    needsReview: summary.needsReview,
+    model,
+  };
 }
 
 async function maybeCommitGroup(

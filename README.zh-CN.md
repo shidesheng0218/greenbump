@@ -256,6 +256,8 @@ npx greenbump react react-dom --group react-upgrade
 | `--list-codemods` | 列出所有内置免费 codemod 并退出。 |
 | `--cache-stats` | 显示缓存条目数、体积及分类统计。 |
 | `--cache-clear [category]` | 清除缓存条目（`changelogs`、`llm-fixes`、`patterns`；省略则全部清除）。 |
+| `--stats [days]` | 显示最近 N 天（默认 30 天）的用量与节省报告并退出。 |
+| `--json` | 配合 `--stats` 使用，输出原始 JSON 而非格式化报告。 |
 
 #### 分层修复策略如何降低成本
 
@@ -263,12 +265,24 @@ npx greenbump react react-dom --group react-upgrade
 
 | 层级 | 策略 | 成本 |
 |---|---|---|
-| 1 | **内置 codemod** —— 针对知名 Breaking Change 的正则转换（React 18→19、Vue 2→3 等） | 0 token |
+| 1 | **内置 codemod** —— 针对知名 Breaking Change 的正则转换（React 18→19、Express 4→5、Zod 3→4、React Router 5→6、Mongoose、Lodash、Node util.* 等） | 0 token |
 | 2 | **学习模式** —— 历史成功修复提炼为可复用规则 | 0 token |
 | 3 | **缓存的 LLM 修复** —— 相同的失败上下文直接重放之前的修复 | 0 token |
 | 4 | **LLM 修复循环** —— 完整的 AI 代理，仅在前三层未命中时启用 | 付费 |
 
-端到端验证：React 18→19 升级（`ReactDOM.render` → `createRoot`）由第 1 层修复，**消耗 0 输入 / 0 输出 token**。成功的 LLM 修复会被学习进缓存，因此跨项目的重复失败同样免费。
+内置 24 条 codemod（`greenbump --list-codemods` 查看完整列表）——大多数直接改代码；对于风险较高、不适合正则改写的场景（ESLint 9 flat config、Axios 1.x、Webpack 5 polyfill 等），第 1 层会命中错误并输出迁移提示，而不是硬猜一个改动，避免误改。
+
+端到端验证：Express 4→5（`app.del`→`app.delete`）和 Zod 3→4（`error.errors`→`error.issues`）均由第 1 层修复，**消耗 0 输入 / 0 输出 token**。成功的 LLM 修复会被学习进缓存，因此跨项目的重复失败同样免费。
+
+#### 看看它到底帮你省了多少
+
+```bash
+npx greenbump --stats          # 最近 30 天
+npx greenbump --stats 7        # 最近 7 天
+npx greenbump --stats --json   # 机器可读，方便接入自己的看板
+```
+
+每次运行都会在本地追加一条记录（`~/.greenbump/runs.jsonl`，可用 `GREENBUMP_STATS_DIR` 覆盖路径）——不联网、不上报，数据不出本机。`--stats` 会汇总出修复层级分布、避免的 LLM 调用次数、实际花费的 token/金额，以及免费层级节省的**估算**金额（明确标注为估算，不是账单）。
 
 ### Git
 

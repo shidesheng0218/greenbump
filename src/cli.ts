@@ -15,6 +15,7 @@ import { detectPackageManager } from "./engine/pm.js";
 import { createInteractiveHandler } from "./cli/interactive.js";
 import { listBuiltinCodemods } from "./engine/fixer/patterns.js";
 import { getCache } from "./engine/cache/manager.js";
+import { loadAndSummarize, formatStatsReport } from "./engine/stats/report.js";
 
 const program = new Command();
 
@@ -56,6 +57,8 @@ program
   .option("--cache-stats", "show cache statistics and exit")
   .option("--cache-clear [category]", "clear the cache (changelogs, llm-fixes, patterns) and exit")
   .option("--no-ast-analysis", "disable post-fix API surface analysis")
+  .option("--stats [days]", "show usage/cost-savings report for the last N days (default 30) and exit")
+  .option("--json", "with --stats, print the raw JSON summary instead of the formatted report")
   .action(async (deps, opts) => {
     if (opts.listProviders) {
       console.log("Built-in provider presets:\n" + listProviders());
@@ -76,6 +79,17 @@ program
       console.log(`Cache: ${stats.entries} entries, ${(stats.sizeBytes / 1024 / 1024).toFixed(1)} MB`);
       for (const [cat, s] of Object.entries(stats.byCategory)) {
         console.log(`  ${cat}: ${s.entries} entries, ${(s.sizeBytes / 1024).toFixed(1)} KB`);
+      }
+      process.exit(0);
+    }
+
+    if (opts.stats !== undefined) {
+      const days = typeof opts.stats === "string" ? parseInt(opts.stats, 10) || 30 : 30;
+      const summary = await loadAndSummarize(days);
+      if (opts.json) {
+        console.log(JSON.stringify(summary, null, 2));
+      } else {
+        console.log(formatStatsReport(summary));
       }
       process.exit(0);
     }

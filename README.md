@@ -273,6 +273,8 @@ npx greenbump react react-dom --group react-upgrade
 | `--list-codemods` | List the builtin free codemods and exit. |
 | `--cache-stats` | Show cache entry count, size, and per-category breakdown. |
 | `--cache-clear [category]` | Clear cached entries (`changelogs`, `llm-fixes`, `patterns`; all if omitted). |
+| `--stats [days]` | Show a usage/cost-savings report for the last N days (default 30) and exit. |
+| `--json` | With `--stats`, print the raw JSON summary instead of the formatted report. |
 
 #### How the tiered fix strategy keeps costs down
 
@@ -280,12 +282,33 @@ When an upgrade breaks the build, greenbump tries four escalating fix tiers — 
 
 | Tier | Strategy | Cost |
 |---|---|---|
-| 1 | **Builtin codemods** — regex transforms for well-known breakages (React 18→19, Vue 2→3, …) | 0 tokens |
+| 1 | **Builtin codemods** — regex transforms for well-known breakages (React 18→19, Express 4→5, Zod 3→4, React Router 5→6, Mongoose, Lodash, Node util.\*, …) | 0 tokens |
 | 2 | **Learned patterns** — past successful fixes distilled into reusable rules | 0 tokens |
 | 3 | **Cached LLM fixes** — identical failure context replays a previous fix | 0 tokens |
 | 4 | **LLM fix loop** — the full agent, only when tiers 1–3 miss | paid |
 
-Verified end-to-end: a React 18→19 upgrade (`ReactDOM.render` → `createRoot`) is fixed by tier 1 with **0 input / 0 output tokens**. Successful LLM fixes are learned into the cache, so repeat failures across projects are free too.
+24 builtin codemods ship out of the box (`greenbump --list-codemods` for the full list) —
+most rewrite code directly; a few match a known-risky breakage (ESLint 9 flat config,
+Axios 1.x, Webpack 5 polyfills, …) and print a migration note instead of guessing at an
+edit, so tier 1 never silently misapplies a risky change.
+
+Verified end-to-end: Express 4→5 (`app.del`→`app.delete`) and Zod 3→4 (`error.errors`→
+`error.issues`) are both fixed by tier 1 with **0 input / 0 output tokens**. Successful
+LLM fixes are learned into the cache, so repeat failures across projects are free too.
+
+#### See what it's actually saving you
+
+```bash
+npx greenbump --stats          # last 30 days
+npx greenbump --stats 7        # last 7 days
+npx greenbump --stats --json   # machine-readable, for your own dashboards
+```
+
+Every run appends a line to a local, append-only log (`~/.greenbump/runs.jsonl`,
+override with `GREENBUMP_STATS_DIR`) — no network calls, nothing leaves your machine.
+`--stats` aggregates it into fix-tier breakdown, LLM calls avoided, tokens/cost actually
+spent, and an *estimated* dollar figure saved by the free tiers (clearly labeled as an
+estimate, not a bill).
 
 ### Git
 
