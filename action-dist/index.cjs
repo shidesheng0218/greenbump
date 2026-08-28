@@ -15030,7 +15030,7 @@ ${lanes.join("\n")}
             writeOutputIsTTY() {
               return process.stdout.isTTY;
             },
-            readFile: readFile17,
+            readFile: readFile18,
             writeFile: writeFile22,
             watchFile: watchFile2,
             watchDirectory,
@@ -15236,7 +15236,7 @@ ${lanes.join("\n")}
               callback
             );
           }
-          function readFile17(fileName, _encoding) {
+          function readFile18(fileName, _encoding) {
             let buffer;
             try {
               buffer = _fs.readFileSync(fileName);
@@ -51792,7 +51792,7 @@ ${lanes.join("\n")}
         const possibleOption = getSpellingSuggestion(unknownOption, diagnostics.optionDeclarations, getOptionName);
         return possibleOption ? createDiagnosticForNodeInSourceFileOrCompilerDiagnostic(sourceFile, node, diagnostics.unknownDidYouMeanDiagnostic, unknownOptionErrorText || unknownOption, possibleOption.name) : createDiagnosticForNodeInSourceFileOrCompilerDiagnostic(sourceFile, node, diagnostics.unknownOptionDiagnostic, unknownOptionErrorText || unknownOption);
       }
-      function parseCommandLineWorker(diagnostics, commandLine, readFile17) {
+      function parseCommandLineWorker(diagnostics, commandLine, readFile18) {
         const options = {};
         let watchOptions;
         const fileNames = [];
@@ -51840,7 +51840,7 @@ ${lanes.join("\n")}
           }
         }
         function parseResponseFile(fileName) {
-          const text = tryReadFile(fileName, readFile17 || ((fileName2) => sys.readFile(fileName2)));
+          const text = tryReadFile(fileName, readFile18 || ((fileName2) => sys.readFile(fileName2)));
           if (!isString(text)) {
             errors.push(text);
             return;
@@ -51943,8 +51943,8 @@ ${lanes.join("\n")}
         unknownDidYouMeanDiagnostic: Diagnostics.Unknown_compiler_option_0_Did_you_mean_1,
         optionTypeMismatchDiagnostic: Diagnostics.Compiler_option_0_expects_an_argument
       };
-      function parseCommandLine(commandLine, readFile17) {
-        return parseCommandLineWorker(compilerOptionsDidYouMeanDiagnostics, commandLine, readFile17);
+      function parseCommandLine(commandLine, readFile18) {
+        return parseCommandLineWorker(compilerOptionsDidYouMeanDiagnostics, commandLine, readFile18);
       }
       function getOptionFromName(optionName, allowShort) {
         return getOptionDeclarationFromName(getOptionsNameMap, optionName, allowShort);
@@ -52026,8 +52026,8 @@ ${lanes.join("\n")}
           watchOptionsToExtend
         );
       }
-      function readConfigFile(fileName, readFile17) {
-        const textOrDiagnostic = tryReadFile(fileName, readFile17);
+      function readConfigFile(fileName, readFile18) {
+        const textOrDiagnostic = tryReadFile(fileName, readFile18);
         return isString(textOrDiagnostic) ? parseConfigFileTextToJson(fileName, textOrDiagnostic) : { config: {}, error: textOrDiagnostic };
       }
       function parseConfigFileTextToJson(fileName, jsonText) {
@@ -52042,14 +52042,14 @@ ${lanes.join("\n")}
           error: jsonSourceFile.parseDiagnostics.length ? jsonSourceFile.parseDiagnostics[0] : void 0
         };
       }
-      function readJsonConfigFile(fileName, readFile17) {
-        const textOrDiagnostic = tryReadFile(fileName, readFile17);
+      function readJsonConfigFile(fileName, readFile18) {
+        const textOrDiagnostic = tryReadFile(fileName, readFile18);
         return isString(textOrDiagnostic) ? parseJsonText(fileName, textOrDiagnostic) : { fileName, parseDiagnostics: [textOrDiagnostic] };
       }
-      function tryReadFile(fileName, readFile17) {
+      function tryReadFile(fileName, readFile18) {
         let text;
         try {
-          text = readFile17(fileName);
+          text = readFile18(fileName);
         } catch (e2) {
           return createCompilerDiagnostic(Diagnostics.Cannot_read_file_0_Colon_1, fileName, e2.message);
         }
@@ -141707,12 +141707,12 @@ ${lanes.join("\n")}
       function createCompilerHost(options, setParentNodes) {
         return createCompilerHostWorker(options, setParentNodes);
       }
-      function createGetSourceFile(readFile17, setParentNodes) {
+      function createGetSourceFile(readFile18, setParentNodes) {
         return (fileName, languageVersionOrOptions, onError) => {
           let text;
           try {
             mark("beforeIORead");
-            text = readFile17(fileName);
+            text = readFile18(fileName);
             mark("afterIORead");
             measure("I/O Read", "beforeIORead", "afterIORead");
           } catch (e2) {
@@ -142616,7 +142616,7 @@ ${lanes.join("\n")}
           getRedirectFromOutput,
           forEachResolvedProjectReference: forEachResolvedProjectReference2
         });
-        const readFile17 = host.readFile.bind(host);
+        const readFile18 = host.readFile.bind(host);
         (_e2 = tracing) == null ? void 0 : _e2.push(tracing.Phase.Program, "shouldProgramCreateNewSourceFiles", { hasOldProgram: !!oldProgram });
         const shouldCreateNewSourceFile = shouldProgramCreateNewSourceFiles(oldProgram, options);
         (_f = tracing) == null ? void 0 : _f.pop();
@@ -142842,7 +142842,7 @@ ${lanes.join("\n")}
           shouldTransformImportCall,
           emitBuildInfo,
           fileExists,
-          readFile: readFile17,
+          readFile: readFile18,
           directoryExists,
           getSymlinkCache,
           realpath: (_o = host.realpath) == null ? void 0 : _o.bind(host),
@@ -217244,8 +217244,8 @@ async function pathExists(p2) {
 // dist/engine/ecosystems/npm.js
 async function readScripts(cwd) {
   try {
-    const { readFile: readFile17 } = await import("node:fs/promises");
-    const raw = await readFile17((0, import_node_path.join)(cwd, "package.json"), "utf8");
+    const { readFile: readFile18 } = await import("node:fs/promises");
+    const raw = await readFile18((0, import_node_path.join)(cwd, "package.json"), "utf8");
     const pkg = JSON.parse(raw);
     return { build: pkg.scripts?.build, test: pkg.scripts?.test };
   } catch {
@@ -217287,8 +217287,8 @@ var npmAdapter = {
 var import_node_path2 = require("node:path");
 async function readScripts2(cwd) {
   try {
-    const { readFile: readFile17 } = await import("node:fs/promises");
-    const raw = await readFile17((0, import_node_path2.join)(cwd, "package.json"), "utf8");
+    const { readFile: readFile18 } = await import("node:fs/promises");
+    const raw = await readFile18((0, import_node_path2.join)(cwd, "package.json"), "utf8");
     const pkg = JSON.parse(raw);
     return { build: pkg.scripts?.build, test: pkg.scripts?.test };
   } catch {
@@ -217339,8 +217339,8 @@ var yarnAdapter = {
 var import_node_path3 = require("node:path");
 async function readScripts3(cwd) {
   try {
-    const { readFile: readFile17 } = await import("node:fs/promises");
-    const raw = await readFile17((0, import_node_path3.join)(cwd, "package.json"), "utf8");
+    const { readFile: readFile18 } = await import("node:fs/promises");
+    const raw = await readFile18((0, import_node_path3.join)(cwd, "package.json"), "utf8");
     const pkg = JSON.parse(raw);
     return { build: pkg.scripts?.build, test: pkg.scripts?.test };
   } catch {
@@ -217733,10 +217733,10 @@ var bundlerAdapter = {
   }
 };
 async function pinInGemfile(cwd, name, version, fallback) {
-  const { readFile: readFile17, writeFile: writeFile12 } = await import("node:fs/promises");
+  const { readFile: readFile18, writeFile: writeFile12 } = await import("node:fs/promises");
   try {
     const path2 = (0, import_node_path11.join)(cwd, "Gemfile");
-    const raw = await readFile17(path2, "utf8");
+    const raw = await readFile18(path2, "utf8");
     const re2 = new RegExp(`^(\\s*gem\\s+["']${name}["'])(.*)$`, "m");
     if (re2.test(raw)) {
       const next = raw.replace(re2, `$1, "= ${version}"`);
@@ -218019,9 +218019,9 @@ var mixAdapter = {
     return parseMixOutdated(r2.stdout);
   },
   async install(cwd, name, version) {
-    const { readFile: readFile17, writeFile: writeFile12 } = await import("node:fs/promises");
+    const { readFile: readFile18, writeFile: writeFile12 } = await import("node:fs/promises");
     const path2 = (0, import_node_path15.join)(cwd, "mix.exs");
-    const raw = await readFile17(path2, "utf8");
+    const raw = await readFile18(path2, "utf8");
     const re2 = new RegExp(`(\\{:${name},\\s*)"[^"]+"`);
     if (!re2.test(raw)) {
       return { code: 1, stdout: "", stderr: `could not find :${name} in mix.exs`, combined: `could not find :${name} in mix.exs` };
@@ -218794,6 +218794,183 @@ var BUILTIN_CODEMODS = [
       remove: "",
       add: "import { vi } from 'vitest'"
     }
+  },
+  // ── Express 4 → 5 ──
+  {
+    package: "express",
+    versionRange: { fromMajor: 4, toMajor: 5 },
+    errorMatch: "app\\.del is not a function",
+    description: "app.del() \u2192 app.delete() (Express 5 removed app.del)",
+    transform: {
+      find: "\\bapp\\.del\\(",
+      replace: "app.delete("
+    }
+  },
+  {
+    package: "express",
+    versionRange: { fromMajor: 4, toMajor: 5 },
+    errorMatch: "res\\.send\\(status\\)|res\\.send\\(\\d{3}\\)",
+    description: "res.send(status) \u2192 res.sendStatus(status) (Express 5)",
+    transform: {
+      find: "\\bres\\.send\\((\\d{3})\\)",
+      replace: "res.sendStatus($1)"
+    }
+  },
+  // ── Zod 3 → 4 ──
+  {
+    package: "zod",
+    versionRange: { fromMajor: 3, toMajor: 4 },
+    errorMatch: "\\berrors\\b.*(not a function|undefined)|error\\.errors",
+    description: "error.errors \u2192 error.issues (Zod 4)",
+    transform: {
+      find: "\\.error\\.errors\\b",
+      replace: ".error.issues"
+    }
+  },
+  {
+    package: "zod",
+    versionRange: { fromMajor: 3, toMajor: 4 },
+    errorMatch: "z\\.string\\(\\)\\.email|z\\.string\\(\\)\\.url|z\\.string\\(\\)\\.uuid|deprecated.*z\\.string",
+    description: "z.string().email()/.url()/.uuid() \u2192 z.email()/z.url()/z.uuid() (Zod 4)",
+    transform: {
+      find: "z\\.string\\(\\)\\.(email|url|uuid)\\(\\)",
+      replace: "z.$1()"
+    }
+  },
+  // ── Node util.is* removal (Node 22) ──
+  {
+    package: "*",
+    errorMatch: "util\\.is(Array|Buffer|Date|RegExp|Error|Function|String|Number|Boolean|Object) is not a function",
+    description: "util.is*() \u2192 native equivalents (removed in Node 22)",
+    transform: {
+      find: "util\\.isArray\\(",
+      replace: "Array.isArray("
+    }
+  },
+  {
+    package: "*",
+    errorMatch: "util\\.isBuffer is not a function",
+    description: "util.isBuffer() \u2192 Buffer.isBuffer() (removed in Node 22)",
+    transform: {
+      find: "util\\.isBuffer\\(",
+      replace: "Buffer.isBuffer("
+    }
+  },
+  // ── assert.deepEqual → deepStrictEqual ──
+  {
+    package: "*",
+    errorMatch: "assert\\.deepEqual is deprecated",
+    description: "assert.deepEqual \u2192 assert.deepStrictEqual",
+    transform: {
+      find: "assert\\.deepEqual\\(",
+      replace: "assert.deepStrictEqual(",
+      fileFilter: "test"
+    }
+  },
+  // ── Lodash 4 removed/renamed methods ──
+  {
+    package: "lodash",
+    errorMatch: "_\\.pluck is not a function",
+    description: "_.pluck(collection, key) \u2192 _.map(collection, key) (Lodash 4 removed pluck)",
+    transform: {
+      find: "_\\.pluck\\(",
+      replace: "_.map("
+    }
+  },
+  {
+    package: "lodash",
+    errorMatch: "_\\.contains is not a function",
+    description: "_.contains \u2192 _.includes (Lodash 4 renamed contains)",
+    transform: {
+      find: "_\\.contains\\(",
+      replace: "_.includes("
+    }
+  },
+  // ── React Router 5 → 6 ──
+  {
+    package: "react-router-dom",
+    versionRange: { fromMajor: 5, toMajor: 6 },
+    errorMatch: "Switch.*(is not exported|not a function)|<Switch>",
+    description: "<Switch> \u2192 <Routes> (React Router 6)",
+    transform: {
+      find: "<Switch>",
+      replace: "<Routes>"
+    }
+  },
+  {
+    package: "react-router-dom",
+    versionRange: { fromMajor: 5, toMajor: 6 },
+    errorMatch: "useHistory.*(is not exported|not a function)",
+    description: "useHistory() \u2192 useNavigate() (React Router 6)",
+    transform: {
+      find: "\\buseHistory\\(\\)",
+      replace: "useNavigate()"
+    },
+    imports: {
+      remove: "useHistory",
+      add: "useNavigate"
+    }
+  },
+  // ── Mongoose 6 → 7+ (doc.remove removed) ──
+  {
+    package: "mongoose",
+    versionRange: { fromMajor: 6, toMajor: 8 },
+    errorMatch: "\\.remove is not a function|remove\\(\\).*deprecated",
+    description: "doc.remove() \u2192 doc.deleteOne() (Mongoose 7+)",
+    transform: {
+      find: "\\.remove\\(\\)",
+      replace: ".deleteOne()"
+    }
+  },
+  // ── Guidance-only codemods (match + advise, no transform) ──
+  {
+    package: "eslint",
+    versionRange: { fromMajor: 8, toMajor: 9 },
+    errorMatch: "eslintrc|ESLint configuration.*(invalid|not found)|Could not find config",
+    description: "ESLint 9 uses flat config (eslint.config.js) instead of .eslintrc. A starter eslint.config.js was created \u2014 migrate your rules into it. See https://eslint.org/docs/latest/use/configure/migration-guide",
+    creates: [
+      {
+        path: "eslint.config.js",
+        content: '// ESLint 9 flat config \u2014 generated by greenbump\n// Migrate rules from your old .eslintrc.* into the array below.\n// Guide: https://eslint.org/docs/latest/use/configure/migration-guide\nexport default [\n  {\n    ignores: ["dist/**", "node_modules/**"],\n  },\n];\n',
+        skipIfExists: true
+      }
+    ]
+  },
+  {
+    package: "axios",
+    versionRange: { fromMajor: 0, toMajor: 1 },
+    errorMatch: "axios.*(is not a function|undefined)|baseURL",
+    description: "Axios 1.x changed default export interop and error shapes. Check import style (default vs named) and error.response handling. See https://github.com/axios/axios/releases/tag/v1.0.0"
+  },
+  {
+    package: "webpack",
+    versionRange: { fromMajor: 4, toMajor: 5 },
+    errorMatch: "configuration\\.node|node\\.polyfill|BREAKING CHANGE.*polyfill",
+    description: "Webpack 5 removed automatic Node.js polyfills. Add resolve.fallback entries or the node-polyfill-webpack-plugin if you rely on node builtins. See https://webpack.js.org/migrate/5/"
+  },
+  {
+    package: "jest",
+    versionRange: { fromMajor: 28, toMajor: 30 },
+    errorMatch: "testEnvironment.*jsdom.*not found|Cannot find module.*jsdom",
+    description: 'Jest 29+ moved jsdom into a separate package. Run: npm i -D jest-environment-jsdom, then keep testEnvironment: "jsdom".'
+  },
+  {
+    package: "typescript",
+    versionRange: { fromMajor: 4, toMajor: 5 },
+    errorMatch: "TS1208|isolatedModules",
+    description: 'TypeScript 5 tightened module interop under isolatedModules. Enable "verbatimModuleSyntax": true in tsconfig and use `import type` for type-only imports. See https://www.typescriptlang.org/tsconfig#verbatimModuleSyntax'
+  },
+  {
+    package: "prettier",
+    versionRange: { fromMajor: 2, toMajor: 3 },
+    errorMatch: "trailingComma.*invalid|arrowParens",
+    description: 'Prettier 3 changed defaults (trailingComma: "all", arrowParens: "always"). Pin your preferred values in .prettierrc to keep formatting stable. See https://prettier.io/blog/2023/07/05/3.0.0.html'
+  },
+  {
+    package: "socket.io",
+    versionRange: { fromMajor: 3, toMajor: 4 },
+    errorMatch: "io\\.to.*emit.*not a function|namespace.*not found",
+    description: "Socket.IO 4 changed namespace/broadcast API and default CORS handling. Review server options (cors, allowRequest) and client connection URLs. See https://socket.io/docs/v4/migrating-from-3-x-to-4-0/"
   }
 ];
 async function tryBuiltinCodemods(ctx) {
@@ -218805,9 +218982,10 @@ async function tryBuiltinCodemods(ctx) {
     if (!new RegExp(c2.errorMatch, "i").test(ctx.failureOutput))
       return false;
     if (c2.versionRange) {
-      if (c2.versionRange.fromMajor !== void 0 && fromMajor !== c2.versionRange.fromMajor)
+      const { fromMajor: rf, toMajor: rt2 } = c2.versionRange;
+      if (rf !== void 0 && fromMajor !== rf)
         return false;
-      if (c2.versionRange.toMajor !== void 0 && toMajor !== c2.versionRange.toMajor)
+      if (rt2 !== void 0 && toMajor > rt2)
         return false;
     }
     return true;
@@ -218817,45 +218995,74 @@ async function tryBuiltinCodemods(ctx) {
   }
   const editedFiles = [];
   const descriptions = [];
+  const advice = [];
   for (const codemod of candidates) {
-    for (const file of ctx.candidateFiles) {
-      if (codemod.transform.fileFilter && !file.includes(codemod.transform.fileFilter))
-        continue;
-      const abs = (0, import_node_path22.join)(ctx.cwd, file);
-      let content;
-      try {
-        content = await (0, import_promises12.readFile)(abs, "utf8");
-      } catch {
-        continue;
-      }
-      let updated = content;
-      try {
-        updated = updated.replace(new RegExp(codemod.transform.find, "g"), codemod.transform.replace);
-      } catch {
-        continue;
-      }
-      if (codemod.imports) {
-        const { remove, add } = codemod.imports;
-        if (remove && updated.includes(remove)) {
-          updated = updated.replace(remove, add);
-        } else if (add && !updated.includes(add) && updated !== content) {
-          updated = add + "\n" + updated;
+    let touched = false;
+    if (codemod.transform) {
+      for (const file of ctx.candidateFiles) {
+        if (codemod.transform.fileFilter && !file.includes(codemod.transform.fileFilter))
+          continue;
+        const abs = (0, import_node_path22.join)(ctx.cwd, file);
+        let content;
+        try {
+          content = await (0, import_promises12.readFile)(abs, "utf8");
+        } catch {
+          continue;
+        }
+        let updated = content;
+        try {
+          updated = updated.replace(new RegExp(codemod.transform.find, "g"), codemod.transform.replace);
+        } catch {
+          continue;
+        }
+        if (codemod.imports) {
+          const { remove, add } = codemod.imports;
+          if (remove && updated.includes(remove)) {
+            updated = updated.replace(remove, add);
+          } else if (add && !updated.includes(add) && updated !== content) {
+            updated = add + "\n" + updated;
+          }
+        }
+        if (updated !== content) {
+          await (0, import_promises12.writeFile)(abs, updated, "utf8");
+          editedFiles.push(file);
+          touched = true;
         }
       }
-      if (updated !== content) {
-        await (0, import_promises12.writeFile)(abs, updated, "utf8");
-        editedFiles.push(file);
+    }
+    if (codemod.creates) {
+      for (const create of codemod.creates) {
+        const abs = (0, import_node_path22.join)(ctx.cwd, create.path);
+        if (create.skipIfExists !== false) {
+          try {
+            await (0, import_promises12.readFile)(abs, "utf8");
+            continue;
+          } catch {
+          }
+        }
+        try {
+          await (0, import_promises12.mkdir)((0, import_node_path22.dirname)(abs), { recursive: true });
+          await (0, import_promises12.writeFile)(abs, create.content, "utf8");
+          editedFiles.push(create.path);
+          touched = true;
+        } catch {
+        }
       }
     }
-    if (editedFiles.length > 0)
+    if (touched) {
       descriptions.push(codemod.description);
+    } else if (!codemod.transform && !codemod.creates) {
+      advice.push(codemod.description);
+    }
   }
+  const applied = editedFiles.length > 0;
   return {
-    applied: editedFiles.length > 0,
+    applied,
     tier: FixTier.REGEX,
     editedFiles,
     description: descriptions.join("; ") || "no codemod matched",
-    tokensUsed: { inputTokens: 0, outputTokens: 0 }
+    tokensUsed: { inputTokens: 0, outputTokens: 0 },
+    ...advice.length > 0 ? { advice } : {}
   };
 }
 async function tryLearnedPatterns(ctx) {
@@ -219405,6 +219612,10 @@ async function runFixLoop(opts) {
       candidateFiles: candidateFiles.length > 0 ? candidateFiles : ["."]
     };
     const t1 = await tryBuiltinCodemods(patternCtx);
+    if (t1.advice && t1.advice.length > 0) {
+      for (const a2 of t1.advice)
+        log(`tier 1 (codemod): guidance \u2014 ${a2}`);
+    }
     if (t1.applied) {
       log(`tier 1 (codemod): applied \u2014 ${t1.description}`);
       const check = await runChecks(pm, opts.cwd, checkOverrides);
@@ -231949,9 +232160,45 @@ Breaking changes in ${digest.packageName}@${digest.toVersion} (pre-digested from
 ${lines.join("\n")}`;
 }
 
+// dist/engine/stats/recorder.js
+var import_promises20 = require("node:fs/promises");
+var import_node_path27 = require("node:path");
+var import_node_os2 = require("node:os");
+function statsDir() {
+  return process.env.GREENBUMP_STATS_DIR ?? (0, import_node_path27.join)((0, import_node_os2.homedir)(), ".greenbump");
+}
+function runsPath() {
+  return (0, import_node_path27.join)(statsDir(), "runs.jsonl");
+}
+async function recordRun(rec, onLog) {
+  try {
+    await (0, import_promises20.mkdir)(statsDir(), { recursive: true });
+    await (0, import_promises20.appendFile)(runsPath(), JSON.stringify(rec) + "\n", "utf8");
+  } catch (err) {
+    onLog?.(`stats: failed to record run (${err.message})`);
+  }
+}
+
 // dist/engine/run.js
 var RunError = class extends Error {
 };
+function summaryToRecord(summary, model) {
+  return {
+    ts: Date.now(),
+    dep: summary.dep,
+    from: summary.from,
+    to: summary.to,
+    tier: summary.fixedByTier,
+    cacheHit: summary.cacheHit,
+    inputTokens: summary.usage.inputTokens,
+    outputTokens: summary.usage.outputTokens,
+    avoidedLlmCall: !!summary.fixedByTier && summary.fixedByTier < 4,
+    durationMs: summary.durationMs,
+    fixed: summary.fixed,
+    needsReview: summary.needsReview,
+    model
+  };
+}
 function computeNeedsReview(input) {
   if (input.unverifiable)
     return true;
@@ -232033,12 +232280,14 @@ ${up.output}`);
     summary.needsReview = true;
     await maybeCommit(cwd, summary, true);
     summary.durationMs = Date.now() - startedAt;
+    await recordRun(summaryToRecord(summary), log);
     return summary;
   }
   if (post.ok) {
     log("clean upgrade \u2014 build + tests green with no code changes");
     await maybeCommit(cwd, summary, true);
     summary.durationMs = Date.now() - startedAt;
+    await recordRun(summaryToRecord(summary), log);
     return summary;
   }
   summary.neededFix = true;
@@ -232166,6 +232415,7 @@ ${changelog.slice(0, 2e3)}`;
   }) || summary.needsReview;
   await maybeCommit(cwd, summary, fix.fixed);
   summary.durationMs = Date.now() - startedAt;
+  await recordRun(summaryToRecord(summary, provider.model), log);
   return summary;
 }
 async function maybeCommit(cwd, summary, shouldCommit) {
@@ -232239,7 +232489,7 @@ function renderPrBody(s2) {
 }
 
 // dist/report.js
-var import_promises20 = require("node:fs/promises");
+var import_promises21 = require("node:fs/promises");
 var REPORT_SCHEMA_VERSION = 1;
 function buildReport(runs) {
   return {
@@ -232249,7 +232499,7 @@ function buildReport(runs) {
   };
 }
 async function writeReport(path2, envelope) {
-  await (0, import_promises20.writeFile)(path2, JSON.stringify(envelope, null, 2) + "\n", "utf8");
+  await (0, import_promises21.writeFile)(path2, JSON.stringify(envelope, null, 2) + "\n", "utf8");
 }
 
 // dist/action/github.js
