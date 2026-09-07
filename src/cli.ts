@@ -33,6 +33,7 @@ program
   .option("--test-cmd <cmd>", "override the test command, e.g. \"make test\"")
   .option("--provider <name>", "model provider preset (openai, anthropic, deepseek, groq, …)")
   .option("--model <model>", "model id for the fix agent (default: per provider)")
+  .option("--digest-model <model>", "cheaper model id for utility tasks (changelog digest); default: same as --model")
   .option("--base-url <url>", "custom OpenAI-compatible endpoint (or override a preset)")
   .option("--api-key <key>", "API key (default: read from the provider's env var)")
   .option("--list-providers", "list built-in provider presets and exit")
@@ -175,6 +176,7 @@ program
       testCmd: opts.testCmd,
       provider: opts.provider,
       model: opts.model,
+      digestModel: opts.digestModel,
       baseURL: opts.baseUrl,
       apiKey: opts.apiKey,
       maxRounds: parseInt(opts.maxRounds, 10),

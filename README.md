@@ -143,6 +143,8 @@ then re-ran your test suite to confirm the fix — all inside the fix loop shown
 ### 🛡️ Safe by Default
 - **Git branch isolation** - Never touches your main branch
 - **No auto-merge** - Always requires human review
+- **Hard tool guardrails** - The agent physically cannot write dependency manifests/lockfiles or read secrets (`.env`, keys, credentials) — enforced in the tool layer, not just the prompt
+- **Clear rollback** - A failed fix prints the exact commands to discard the branch and partial edits
 - **Bounded cost** - `--max-rounds` caps token spend
 - **Bring your own key** - You control costs, nothing phones home
 
@@ -249,6 +251,7 @@ npx greenbump react react-dom --group react-upgrade
 |---|---|
 | `--provider <name>` | Model provider preset (`anthropic`, `openai`, `deepseek`, `groq`, …). |
 | `--model <model>` | Model id for the fix agent (default: per provider). |
+| `--digest-model <model>` | Cheaper model id for utility tasks (changelog digest); default: same as `--model`. |
 | `--list-providers` | List built-in provider presets and exit. |
 | `--max-rounds <n>` | Cap fix-loop rounds / token spend (default: `15`). |
 | `--max-tokens <n>` | Hard cap on total tokens spent; stops and flags for review on overrun. |
@@ -309,6 +312,18 @@ override with `GREENBUMP_STATS_DIR`) — no network calls, nothing leaves your m
 `--stats` aggregates it into fix-tier breakdown, LLM calls avoided, tokens/cost actually
 spent, and an *estimated* dollar figure saved by the free tiers (clearly labeled as an
 estimate, not a bill).
+
+Every individual LLM call is also recorded to `~/.greenbump/llm-calls.jsonl` with its
+feature (`fix-loop` / `changelog-digest`), model, input/output tokens, latency, retry
+count, and success/failure — so cost is attributable per task, not just per run.
+
+#### Model routing and output caps
+
+Not every task needs the strong model. The changelog digest is a simple extraction
+task: route it to a cheaper model with `--digest-model` (e.g.
+`greenbump react --digest-model gpt-4o-mini`) while the fix agent keeps `--model`.
+Each call has a bounded output cap (8000 tokens for the fix agent, 2000 for the
+digest), and the digest result is cached per upgrade path so it's paid at most once.
 
 ### Git
 

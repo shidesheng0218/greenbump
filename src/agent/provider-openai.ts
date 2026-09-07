@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import type { Msg, Provider, ToolSpec, TurnResult } from "./provider.js";
+import type { Msg, Provider, SendOptions, ToolSpec, TurnResult } from "./provider.js";
 
 /** Works with any OpenAI-compatible chat-completions endpoint (DeepSeek, etc). */
 export class OpenAICompatProvider implements Provider {
@@ -13,14 +13,14 @@ export class OpenAICompatProvider implements Provider {
     this.client = new OpenAI({ apiKey, baseURL });
   }
 
-  async send(system: string, messages: Msg[], tools: ToolSpec[]): Promise<TurnResult> {
+  async send(system: string, messages: Msg[], tools: ToolSpec[], opts?: SendOptions): Promise<TurnResult> {
     const msgs: OpenAI.Chat.ChatCompletionMessageParam[] = [
       { role: "system", content: system },
       ...messages.flatMap(toOpenAI),
     ];
     const resp = await this.client.chat.completions.create({
       model: this.model,
-      max_tokens: 8000,
+      max_tokens: opts?.maxTokens ?? 8000,
       messages: msgs,
       tools: tools.map((t) => ({
         type: "function" as const,

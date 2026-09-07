@@ -110,6 +110,25 @@ export function printSummaryBox(summary: RunSummary, write: (s: string) => void)
       ),
     );
   }
+
+  // Failed fix: the working tree still holds the upgraded dependency plus
+  // whatever partial edits the agent made. Tell the user exactly how to get
+  // back to a clean state — a red run must never leave them stranded.
+  if (summary.neededFix && !summary.fixed) {
+    write(bar(""));
+    if (summary.branch && summary.baseBranch && !summary.committed) {
+      write(bar(pc.red("✗ nothing was committed — the branch holds the upgrade + partial AI edits.")));
+      write(bar(`${pc.dim("to inspect")}       git diff`));
+      write(bar(`${pc.dim("to roll back")}     git reset --hard && git checkout ${summary.baseBranch} && git branch -D ${summary.branch}`));
+    } else if (!summary.branch) {
+      write(
+        bar(
+          pc.red("✗ no git isolation — the upgrade and partial AI edits are in your working tree.") +
+            pc.dim(" Review the changes (in a git repo: `git diff`, discard with `git restore .`), or re-install the previous version."),
+        ),
+      );
+    }
+  }
 }
 
 /** One-line-per-target summary for --all / multi-dep / --group runs. */

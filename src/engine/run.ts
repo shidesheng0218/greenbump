@@ -23,6 +23,7 @@ import { analyzeApiChanges, readFromGitHead } from "./verifiers/ast-analyzer.js"
 import { digestChangelog, renderDigestForPrompt } from "./analyzers/changelog-parser.js";
 import { getCache } from "./cache/manager.js";
 import { recordRun, type RunRecord } from "./stats/recorder.js";
+import { recordLlmCall, type LlmCallSink } from "../agent/calllog.js";
 
 export interface RunOptions {
   cwd: string;
@@ -38,6 +39,11 @@ export interface RunOptions {
   to?: string;
   /** explicit model override; defaults per detected provider */
   model?: string;
+  /**
+   * cheaper model for utility tasks (changelog digest) — task-based model
+   * routing so extraction work doesn't burn the strong model's tokens
+   */
+  digestModel?: string;
   /** provider preset name (openai, anthropic, deepseek, …); auto-detected if omitted */
   provider?: string;
   /** override / generic OpenAI-compatible base URL */
@@ -76,6 +82,8 @@ export interface RunSummary {
   to: string;
   packageManager: PackageManager;
   branch?: string;
+  /** the branch the user was on before greenbump created its own — used to print rollback instructions */
+  baseBranch?: string;
   baselineGreen: boolean;
   neededFix: boolean;
   fixed: boolean;
@@ -195,6 +203,7 @@ export async function run(opts: RunOptions): Promise<RunSummary> {
 
   // 3. git isolation
   let branch: string | undefined;
+  let baseBranch: string | undefined;
   const gitRepo = await isGitRepo(cwd);
   if (gitRepo && !opts.noGit) {
     if (!(await isTreeClean(cwd))) {
@@ -202,7 +211,7 @@ export async function run(opts: RunOptions): Promise<RunSummary> {
         "Working tree is dirty. Commit or stash your changes first (or pass --no-git).",
       );
     }
-    await currentBranch(cwd); // ensure HEAD resolves
+    baseBranch = await currentBranch(cwd); // also ensures HEAD resolves
     branch = `greenbump/${target.name.replace(/[^a-zA-Z0-9._-]/g, "-")}-${to}`;
     await createBranch(cwd, branch);
     log(`created branch ${branch}`);
@@ -243,6 +252,7 @@ export async function run(opts: RunOptions): Promise<RunSummary> {
     to,
     packageManager: pm,
     branch,
+    baseBranch,
     baselineGreen,
     neededFix: false,
     fixed: post.ok,
@@ -287,17 +297,32 @@ export async function run(opts: RunOptions): Promise<RunSummary> {
     apiKey: opts.apiKey,
   });
 
+  // Per-call cost ledger: every LLM call (fix round, changelog digest) is
+  // appended to ~/.greenbump/llm-calls.jsonl with feature/model/tokens/latency.
+  const llmCallSink: LlmCallSink = (rec) => recordLlmCall({ ...rec, ts: Date.now() }, log);
+
   // Deep-digest the changelog once (cached per upgrade path) — replaces the
   // raw changelog with a compact breaking-change checklist in the fix prompt.
   // Best-effort: any digest failure (bad key, offline, unparseable) falls
   // back to the raw changelog — the digest is an optimization, not a gate.
   if (changelog && !opts.noCache) {
+    // Model routing: the digest is a simple extraction task. When the user
+    // passes --digest-model it runs on that (cheaper) model instead of the
+    // fix agent's; any failure still falls back to the raw changelog below.
+    const digestProvider = opts.digestModel
+      ? createProvider({
+          provider: opts.provider,
+          model: opts.digestModel,
+          baseURL: opts.baseURL,
+          apiKey: opts.apiKey,
+        })
+      : provider;
     try {
-      const digest = await digestChangelog(provider, target.name, from, to, changelog);
+      const digest = await digestChangelog(digestProvider, target.name, from, to, changelog, llmCallSink);
       if (digest && digest.breakingChanges.length > 0) {
         log(
           `changelog digest: ${digest.breakingChanges.length} breaking change(s) extracted` +
-            (digest.fromCache ? " (from cache)" : ` (${digest.tokensUsed.inputTokens} tokens)`),
+            (digest.fromCache ? " (from cache)" : ` (${digestProvider.model}, ${digest.tokensUsed.inputTokens} tokens)`),
         );
         changelog = renderDigestForPrompt(digest) + `\n\nRaw release notes:\n${changelog.slice(0, 2000)}`;
       }
@@ -323,6 +348,7 @@ export async function run(opts: RunOptions): Promise<RunSummary> {
     noFreeTiers: opts.noFreeTiers,
     noCache: opts.noCache,
     onFixSuggestion: opts.interactive ? opts.onFixSuggestion : undefined,
+    onLlmCall: llmCallSink,
   });
   summary.fixed = fix.fixed;
   summary.rounds = fix.rounds;

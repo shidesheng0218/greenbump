@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { Msg, Provider, ToolSpec, TurnResult } from "./provider.js";
+import type { Msg, Provider, SendOptions, ToolSpec, TurnResult } from "./provider.js";
 
 export class AnthropicProvider implements Provider {
   readonly name = "anthropic";
@@ -12,10 +12,10 @@ export class AnthropicProvider implements Provider {
     this.client = new Anthropic({ apiKey, ...(url ? { baseURL: url } : {}) });
   }
 
-  async send(system: string, messages: Msg[], tools: ToolSpec[]): Promise<TurnResult> {
+  async send(system: string, messages: Msg[], tools: ToolSpec[], opts?: SendOptions): Promise<TurnResult> {
     const resp = await this.client.messages.create({
       model: this.model,
-      max_tokens: 8000,
+      max_tokens: opts?.maxTokens ?? 8000,
       system,
       tools: tools.map((t) => ({
         name: t.name,

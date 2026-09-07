@@ -1,4 +1,5 @@
 import type { Provider } from "../../agent/provider.js";
+import type { LlmCallSink } from "../../agent/calllog.js";
 import { getCache } from "../cache/manager.js";
 
 /**
@@ -77,6 +78,7 @@ export async function digestChangelog(
   from: string,
   to: string,
   changelog: string | null,
+  onLlmCall?: LlmCallSink,
 ): Promise<ChangelogDigest | null> {
   if (!changelog) return null;
 
@@ -101,11 +103,41 @@ export async function digestChangelog(
     }
   }
 
-  const result = await provider.send(
-    "You extract breaking changes from release notes and respond with strict JSON only.",
-    [{ role: "user", text: DIGEST_PROMPT(packageName, from, to, changelog) }],
-    [],
-  );
+  // The digest is a bounded JSON extraction task — cap output well below the
+  // agent's 8000 so a rambling model can't burn tokens on one utility call.
+  const digestStartedAt = Date.now();
+  let result;
+  try {
+    result = await provider.send(
+      "You extract breaking changes from release notes and respond with strict JSON only.",
+      [{ role: "user", text: DIGEST_PROMPT(packageName, from, to, changelog) }],
+      [],
+      { maxTokens: 2000 },
+    );
+  } catch (err) {
+    await onLlmCall?.({
+      feature: "changelog-digest",
+      provider: provider.name,
+      model: provider.model,
+      inputTokens: 0,
+      outputTokens: 0,
+      durationMs: Date.now() - digestStartedAt,
+      attempts: 1,
+      ok: false,
+      error: (err as Error).message.slice(0, 200),
+    });
+    throw err;
+  }
+  await onLlmCall?.({
+    feature: "changelog-digest",
+    provider: provider.name,
+    model: provider.model,
+    inputTokens: result.usage.inputTokens,
+    outputTokens: result.usage.outputTokens,
+    durationMs: Date.now() - digestStartedAt,
+    attempts: 1,
+    ok: true,
+  });
 
   let breakingChanges: BreakingChange[] = [];
   try {

@@ -131,6 +131,28 @@ test("runFixLoop: model stopping without a tool call triggers one final verifica
   });
 });
 
+test("runFixLoop: onLlmCall receives a cost record per provider call", async () => {
+  await withTmpDir(async (dir) => {
+    await writePkg(dir, { build: "node -e \"process.exit(1)\"" });
+
+    const provider = scriptedProvider([{ toolCalls: [{ id: "1", name: "run_check", input: {} }] }]);
+    const records: Array<{ feature: string; ok: boolean; inputTokens: number }> = [];
+
+    await runFixLoop({
+      ...baseOpts,
+      cwd: dir,
+      provider,
+      maxRounds: 2,
+      onLlmCall: (rec) => {
+        records.push(rec);
+      },
+    });
+
+    assert.equal(records.length, 2);
+    assert.ok(records.every((r) => r.feature === "fix-loop" && r.ok && r.inputTokens === 10));
+  });
+});
+
 test("runFixLoop: read_file/write_file reject paths that escape the project root", async () => {
   await withTmpDir(async (dir) => {
     await writePkg(dir, {});
@@ -158,6 +180,42 @@ test("runFixLoop: read_file/write_file reject paths that escape the project root
 
     const { pathExists } = await import("../engine/ecosystems/types.js");
     assert.equal(await pathExists(join(dir, "..", "..", "etc", "evil")), false);
+  });
+});
+
+test("runFixLoop: write_file is hard-blocked on manifests/lockfiles/secrets, read_file refuses secrets", async () => {
+  await withTmpDir(async (dir) => {
+    await writePkg(dir, {});
+    await writeFile(join(dir, ".env"), "API_KEY=hunter2", "utf8");
+
+    const provider = scriptedProvider([
+      {
+        toolCalls: [
+          { id: "1", name: "write_file", input: { path: "package.json", content: "{}" } },
+          { id: "2", name: "write_file", input: { path: ".env", content: "API_KEY=" } },
+          { id: "3", name: "read_file", input: { path: ".env" } },
+        ],
+      },
+      { toolCalls: [{ id: "4", name: "run_check", input: {} }] },
+    ]);
+
+    await runFixLoop({ ...baseOpts, cwd: dir, provider, maxRounds: 2 });
+
+    const secondCallMessages = provider.calls[1];
+    const toolMsg = secondCallMessages.find((m) => m.role === "tool") as
+      | { role: "tool"; results: { content: string; isError?: boolean }[] }
+      | undefined;
+    assert.ok(toolMsg);
+    assert.match(toolMsg!.results[0].content, /blocked/);
+    assert.equal(toolMsg!.results[0].isError, true);
+    assert.match(toolMsg!.results[1].content, /blocked/);
+    assert.match(toolMsg!.results[2].content, /refused/);
+
+    // The manifest must be untouched and the secret must never have left disk.
+    const { readFile } = await import("node:fs/promises");
+    const pkg = JSON.parse(await readFile(join(dir, "package.json"), "utf8"));
+    assert.equal(pkg.name, "tmp");
+    assert.equal(await readFile(join(dir, ".env"), "utf8"), "API_KEY=hunter2");
   });
 });
 
@@ -202,6 +260,41 @@ test("runFixLoop: single-dep call sites (no opts.deps) keep producing the origin
     const userMsg = firstCallMessages.find((m) => m.role === "user") as { role: "user"; text: string } | undefined;
     assert.ok(userMsg);
     assert.match(userMsg!.text, /`lodash` from 4\.17\.20 to 4\.17\.21/);
+  });
+});
+
+test("runFixLoop: search_code never returns lines from secrets files", async () => {
+  await withTmpDir(async (dir) => {
+    await writePkg(dir, { build: "node -e \"process.exit(0)\"" });
+    await writeFile(join(dir, "app.js"), "const key = process.env.API_KEY;\n", "utf8");
+    await writeFile(join(dir, "secrets.json"), JSON.stringify({ API_KEY: "hunter2-secret" }), "utf8");
+    await writeFile(join(dir, "credentials.json"), JSON.stringify({ API_KEY: "hunter2-creds" }), "utf8");
+
+    const captured: string[] = [];
+    const provider: Provider = {
+      name: "stub",
+      model: "stub-model",
+      async send(_system, messages, _tools) {
+        const last = messages[messages.length - 1];
+        if (last.role === "tool") {
+          captured.push(last.results.map((r) => r.content).join("\n"));
+          return { text: "", toolCalls: [], usage: { inputTokens: 1, outputTokens: 1 } };
+        }
+        return {
+          text: "",
+          toolCalls: [{ id: "1", name: "search_code", input: { query: "API_KEY" } }],
+          usage: { inputTokens: 1, outputTokens: 1 },
+        };
+      },
+    };
+
+    await runFixLoop({ ...baseOpts, cwd: dir, provider, maxRounds: 2 });
+
+    assert.equal(captured.length, 1);
+    // The normal source file matches; the secrets files must not contribute a single line.
+    assert.match(captured[0], /app\.js/);
+    assert.doesNotMatch(captured[0], /hunter2/);
+    assert.doesNotMatch(captured[0], /secrets\.json|credentials\.json/);
   });
 });
 

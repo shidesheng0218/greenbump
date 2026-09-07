@@ -3,6 +3,7 @@ import { resolve, relative, isAbsolute, join } from "node:path";
 import { runChecks, type CheckOverrides } from "../engine/checks.js";
 import { getAdapter, type PackageManager } from "../engine/pm.js";
 import type { Msg, Provider, ToolSpec, TurnResult } from "./provider.js";
+import type { LlmCallSink } from "./calllog.js";
 import { getCache } from "../engine/cache/manager.js";
 import {
   tryBuiltinCodemods,
@@ -19,6 +20,7 @@ import {
   buildCandidateHint,
   estimateTokens,
 } from "../engine/context/optimizer.js";
+import { isProtectedWrite, isSensitivePath } from "./guard.js";
 
 export interface FixResult {
   fixed: boolean;
@@ -91,6 +93,8 @@ export interface FixOptions {
    * or edit to supply replacement content. If unset, edits apply directly.
    */
   onFixSuggestion?: (suggestion: FixSuggestion) => Promise<FixDecision>;
+  /** sink for per-call cost records (feature/model/tokens/latency/outcome) */
+  onLlmCall?: LlmCallSink;
 }
 
 function buildSystemPrompt(pm: PackageManager, deps?: FixDep[]): string {
@@ -209,6 +213,10 @@ async function searchCode(cwd: string, root: string, query: string): Promise<str
       }
       const dot = e.name.lastIndexOf(".");
       if (dot < 0 || !SEARCHABLE_EXT.has(e.name.slice(dot))) continue;
+      // Same secrets boundary as read_file: never let matching lines from a
+      // credentials file (e.g. secrets.json) flow into a tool result — they
+      // would be sent to the LLM provider.
+      if (isSensitivePath(e.name)) continue;
       let s;
       try {
         s = await stat(abs);
@@ -279,12 +287,23 @@ async function toolResult(
     }
     case "read_file": {
       const abs = safePath(cwd, input.path);
+      const rel = relative(cwd, abs);
+      if (isSensitivePath(rel)) {
+        return { text: `(refused: ${input.path} looks like a secrets/credentials file — its contents are never sent to the model)` };
+      }
       const s = await stat(abs);
       if (s.size > 200_000) return { text: "(file too large to read)" };
       return { text: await readFile(abs, "utf8") };
     }
     case "write_file": {
       const abs = safePath(cwd, input.path);
+      const rel = relative(cwd, abs);
+      const adapter = getAdapter(pm);
+      if (isProtectedWrite(rel, adapter.manifestFiles, adapter.lockFiles)) {
+        return {
+          text: `error: write to ${input.path} blocked — it is a dependency manifest/lockfile or secrets file managed outside the fix agent. Fix the source code instead.`,
+        };
+      }
       let content = input.content as string;
 
       // Interactive gate: show the proposed edit and wait for a decision.
@@ -343,14 +362,41 @@ async function sendWithRetry(
   messages: Msg[],
   toolSpecs: ToolSpec[],
   log: (m: string) => void,
+  feature: string,
+  onLlmCall?: LlmCallSink,
 ): Promise<TurnResult> {
+  const startedAt = Date.now();
   let lastErr: unknown;
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
-      return await provider.send(system, messages, toolSpecs);
+      const turn = await provider.send(system, messages, toolSpecs);
+      await onLlmCall?.({
+        feature,
+        provider: provider.name,
+        model: provider.model,
+        inputTokens: turn.usage.inputTokens,
+        outputTokens: turn.usage.outputTokens,
+        durationMs: Date.now() - startedAt,
+        attempts: attempt,
+        ok: true,
+      });
+      return turn;
     } catch (err) {
       lastErr = err;
-      if (attempt === MAX_RETRIES || !isRetryable(err)) throw err;
+      if (attempt === MAX_RETRIES || !isRetryable(err)) {
+        await onLlmCall?.({
+          feature,
+          provider: provider.name,
+          model: provider.model,
+          inputTokens: 0,
+          outputTokens: 0,
+          durationMs: Date.now() - startedAt,
+          attempts: attempt,
+          ok: false,
+          error: (err as Error).message.slice(0, 200),
+        });
+        throw err;
+      }
       const delay = RETRY_BASE_DELAY_MS * 2 ** (attempt - 1);
       log(`provider request failed (${(err as Error).message}) — retrying in ${delay}ms (attempt ${attempt}/${MAX_RETRIES})`);
       await new Promise((r) => setTimeout(r, delay));
@@ -480,7 +526,7 @@ Fix the source code so build and tests pass. Call run_check to verify before fin
     const remaining = opts.maxRounds - round + 1;
     const system = remaining <= 2 ? `${SYSTEM}\n\nYou have ${remaining} round(s) left. Wrap up and verify now.` : SYSTEM;
 
-    const turn = await sendWithRetry(provider, system, messages, tools, log);
+    const turn = await sendWithRetry(provider, system, messages, tools, log, "fix-loop", opts.onLlmCall);
     usage.inputTokens += turn.usage.inputTokens;
     usage.outputTokens += turn.usage.outputTokens;
 

@@ -30,8 +30,13 @@ export interface TurnResult {
   usage: { inputTokens: number; outputTokens: number };
 }
 
+export interface SendOptions {
+  /** per-call output cap; defaults to the provider's built-in cap (8000) */
+  maxTokens?: number;
+}
+
 export interface Provider {
   readonly name: string;
   readonly model: string;
-  send(system: string, messages: Msg[], tools: ToolSpec[]): Promise<TurnResult>;
+  send(system: string, messages: Msg[], tools: ToolSpec[], opts?: SendOptions): Promise<TurnResult>;
 }
