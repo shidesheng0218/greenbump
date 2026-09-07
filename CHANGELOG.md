@@ -3,7 +3,51 @@
 All notable changes to this project are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased] - v0.7.0
+## [Unreleased] - v0.8.0
+
+### Added
+- **Hard tool-layer guardrails** (`src/agent/guard.ts`): the fix agent's `read_file`,
+  `write_file`, and `search_code` tools now physically cannot touch secrets or
+  dependency manifests/lockfiles — enforced at the tool-call boundary, not just the
+  system prompt. `read_file`/`search_code` refuse `.env`, `*.pem`/`*.key`, SSH keys,
+  `.npmrc`/`.netrc`, `credentials.json`, `secrets.json`/`.yaml`, and similar; contents
+  never enter a tool result, so they can never be sent to the LLM provider.
+  `write_file` blocks the ecosystem's manifest/lockfile (`package.json`,
+  `package-lock.json`, etc.) so the fix agent can't silently undo or alter what the
+  upgrade step manages.
+- **Per-call cost ledger** (`src/agent/calllog.ts`): every individual LLM call (fix
+  round, changelog digest) is appended to `~/.greenbump/llm-calls.jsonl` with feature,
+  model, input/output tokens, latency, retry count, and success/failure — cost is now
+  attributable per task, not just per run. Complements the existing per-run stats log.
+- **Model routing for utility tasks** (`--digest-model <model>`): the changelog digest
+  is a bounded JSON-extraction task, not agentic reasoning — route it to a cheaper
+  model independent of `--model` (e.g. `--model claude-sonnet-5 --digest-model
+  gpt-4o-mini`). Falls back to `--model` when omitted. The digest call's output is
+  also now capped at 2000 tokens (vs. the fix agent's 8000) so a rambling response
+  can't run up cost on a simple extraction.
+- **Clear rollback on failure**: when a run doesn't get merged (failed fix or no git
+  isolation), the summary box now prints the exact commands to inspect and discard the
+  branch/working-tree changes, instead of leaving the user to figure it out.
+- New `Provider.send()` parameter `SendOptions.maxTokens` (per-call output cap,
+  defaults to the existing 8000) — plumbed through both the Anthropic and
+  OpenAI-compatible providers.
+- Tests: `guard.test.ts`, `calllog.test.ts`, `format.test.ts`, plus a `fixer.test.ts`
+  case asserting `search_code` never returns lines from secrets files (13 new tests,
+  157 total).
+
+### Changed
+- `RunOptions` gained `digestModel`; `RunSummary` gained `baseBranch` (used to render
+  the rollback commands).
+
+### Impact
+- **Secrets can't leak through the agent**: closes a path where a fix-loop
+  `search_code` call could have matched and returned lines from a `secrets.json` or
+  `credentials.json` sitting in the repo — verified with a regression test.
+- **Cheaper by default for multi-package upgrades**: routing the digest step to a
+  smaller model cuts its cost without touching the fix agent's quality.
+- **Less scary failures**: a red run now tells you exactly how to get back to clean.
+
+## [0.7.0] - 2026-08-28
 
 ### Added
 - **Expanded codemod library**: tier-1 free fixes grew from 6 to 24, covering the

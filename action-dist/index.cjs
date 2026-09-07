@@ -219321,6 +219321,26 @@ function normalizePath(p2, cwd) {
   return cleaned;
 }
 
+// dist/agent/guard.js
+function isSensitivePath(relPath) {
+  const base = relPath.split("/").pop().toLowerCase();
+  if (base === ".env" || base.startsWith(".env.")) {
+    return !/\.(example|sample|template|dist)$/.test(base);
+  }
+  if (/\.(pem|key|p12|pfx|jks|keystore)$/.test(base))
+    return true;
+  if (/^id_(rsa|dsa|ecdsa|ed25519)/.test(base))
+    return true;
+  if ([".npmrc", ".netrc", ".pypirc", ".dockercfg", "credentials", "credentials.json", "secrets.json", "secrets.yml", "secrets.yaml"].includes(base)) {
+    return true;
+  }
+  return false;
+}
+function isProtectedWrite(relPath, manifestFiles, lockFiles) {
+  const base = relPath.split("/").pop();
+  return manifestFiles.includes(base) || lockFiles.includes(base) || isSensitivePath(relPath);
+}
+
 // dist/agent/fixer.js
 function buildSystemPrompt(pm, deps) {
   const adapter = getAdapter(pm);
@@ -219443,6 +219463,8 @@ async function searchCode(cwd, root, query) {
       const dot = e2.name.lastIndexOf(".");
       if (dot < 0 || !SEARCHABLE_EXT.has(e2.name.slice(dot)))
         continue;
+      if (isSensitivePath(e2.name))
+        continue;
       let s2;
       try {
         s2 = await (0, import_promises14.stat)(abs);
@@ -219512,6 +219534,10 @@ async function toolResult(cwd, pm, checkOverrides, name, input, onFixSuggestion)
     }
     case "read_file": {
       const abs = safePath(cwd, input.path);
+      const rel = (0, import_node_path24.relative)(cwd, abs);
+      if (isSensitivePath(rel)) {
+        return { text: `(refused: ${input.path} looks like a secrets/credentials file \u2014 its contents are never sent to the model)` };
+      }
       const s2 = await (0, import_promises14.stat)(abs);
       if (s2.size > 2e5)
         return { text: "(file too large to read)" };
@@ -219519,6 +219545,13 @@ async function toolResult(cwd, pm, checkOverrides, name, input, onFixSuggestion)
     }
     case "write_file": {
       const abs = safePath(cwd, input.path);
+      const rel = (0, import_node_path24.relative)(cwd, abs);
+      const adapter = getAdapter(pm);
+      if (isProtectedWrite(rel, adapter.manifestFiles, adapter.lockFiles)) {
+        return {
+          text: `error: write to ${input.path} blocked \u2014 it is a dependency manifest/lockfile or secrets file managed outside the fix agent. Fix the source code instead.`
+        };
+      }
       let content = input.content;
       if (onFixSuggestion) {
         let oldContent = "";
@@ -219565,15 +219598,39 @@ function isRetryable(err) {
   const msg = err instanceof Error ? err.message : String(err);
   return /connection error|ECONNRESET|ETIMEDOUT|EAI_AGAIN|fetch failed|network|429|500|502|503|504/i.test(msg);
 }
-async function sendWithRetry(provider, system, messages, toolSpecs, log) {
+async function sendWithRetry(provider, system, messages, toolSpecs, log, feature, onLlmCall) {
+  const startedAt = Date.now();
   let lastErr;
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
-      return await provider.send(system, messages, toolSpecs);
+      const turn = await provider.send(system, messages, toolSpecs);
+      await onLlmCall?.({
+        feature,
+        provider: provider.name,
+        model: provider.model,
+        inputTokens: turn.usage.inputTokens,
+        outputTokens: turn.usage.outputTokens,
+        durationMs: Date.now() - startedAt,
+        attempts: attempt,
+        ok: true
+      });
+      return turn;
     } catch (err) {
       lastErr = err;
-      if (attempt === MAX_RETRIES || !isRetryable(err))
+      if (attempt === MAX_RETRIES || !isRetryable(err)) {
+        await onLlmCall?.({
+          feature,
+          provider: provider.name,
+          model: provider.model,
+          inputTokens: 0,
+          outputTokens: 0,
+          durationMs: Date.now() - startedAt,
+          attempts: attempt,
+          ok: false,
+          error: err.message.slice(0, 200)
+        });
         throw err;
+      }
       const delay = RETRY_BASE_DELAY_MS * 2 ** (attempt - 1);
       log(`provider request failed (${err.message}) \u2014 retrying in ${delay}ms (attempt ${attempt}/${MAX_RETRIES})`);
       await new Promise((r2) => setTimeout(r2, delay));
@@ -219688,7 +219745,7 @@ Fix the source code so build and tests pass. Call run_check to verify before fin
     const system = remaining <= 2 ? `${SYSTEM}
 
 You have ${remaining} round(s) left. Wrap up and verify now.` : SYSTEM;
-    const turn = await sendWithRetry(provider, system, messages, tools, log);
+    const turn = await sendWithRetry(provider, system, messages, tools, log, "fix-loop", opts.onLlmCall);
     usage.inputTokens += turn.usage.inputTokens;
     usage.outputTokens += turn.usage.outputTokens;
     messages.push({ role: "assistant", text: turn.text, toolCalls: turn.toolCalls });
@@ -224185,10 +224242,10 @@ var AnthropicProvider = class {
     const url = baseURL || process.env.ANTHROPIC_BASE_URL;
     this.client = new Anthropic({ apiKey, ...url ? { baseURL: url } : {} });
   }
-  async send(system, messages, tools2) {
+  async send(system, messages, tools2, opts) {
     const resp = await this.client.messages.create({
       model: this.model,
-      max_tokens: 8e3,
+      max_tokens: opts?.maxTokens ?? 8e3,
       system,
       tools: tools2.map((t2) => ({
         name: t2.name,
@@ -230840,14 +230897,14 @@ var OpenAICompatProvider = class {
     this.model = model;
     this.client = new openai_default({ apiKey, baseURL });
   }
-  async send(system, messages, tools2) {
+  async send(system, messages, tools2, opts) {
     const msgs = [
       { role: "system", content: system },
       ...messages.flatMap(toOpenAI)
     ];
     const resp = await this.client.chat.completions.create({
       model: this.model,
-      max_tokens: 8e3,
+      max_tokens: opts?.maxTokens ?? 8e3,
       messages: msgs,
       tools: tools2.map((t2) => ({
         type: "function",
@@ -232102,7 +232159,7 @@ Rules:
 - Include ONLY breaking changes (removed APIs, renamed exports, changed required signatures, behavior changes that break existing code). Skip new features, bug fixes, deprecations that still work.
 - If there are no breaking changes, respond with [].
 - oldApi/newApi must be concrete enough to search for in source code.`;
-async function digestChangelog(provider, packageName, from, to, changelog) {
+async function digestChangelog(provider, packageName, from, to, changelog, onLlmCall) {
   if (!changelog)
     return null;
   const cache = getCache();
@@ -232123,7 +232180,34 @@ async function digestChangelog(provider, packageName, from, to, changelog) {
     } catch {
     }
   }
-  const result = await provider.send("You extract breaking changes from release notes and respond with strict JSON only.", [{ role: "user", text: DIGEST_PROMPT(packageName, from, to, changelog) }], []);
+  const digestStartedAt = Date.now();
+  let result;
+  try {
+    result = await provider.send("You extract breaking changes from release notes and respond with strict JSON only.", [{ role: "user", text: DIGEST_PROMPT(packageName, from, to, changelog) }], [], { maxTokens: 2e3 });
+  } catch (err) {
+    await onLlmCall?.({
+      feature: "changelog-digest",
+      provider: provider.name,
+      model: provider.model,
+      inputTokens: 0,
+      outputTokens: 0,
+      durationMs: Date.now() - digestStartedAt,
+      attempts: 1,
+      ok: false,
+      error: err.message.slice(0, 200)
+    });
+    throw err;
+  }
+  await onLlmCall?.({
+    feature: "changelog-digest",
+    provider: provider.name,
+    model: provider.model,
+    inputTokens: result.usage.inputTokens,
+    outputTokens: result.usage.outputTokens,
+    durationMs: Date.now() - digestStartedAt,
+    attempts: 1,
+    ok: true
+  });
   let breakingChanges = [];
   try {
     const text = result.text.trim().replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "");
@@ -232179,6 +232263,25 @@ async function recordRun(rec, onLog) {
   }
 }
 
+// dist/agent/calllog.js
+var import_promises21 = require("node:fs/promises");
+var import_node_path28 = require("node:path");
+var import_node_os3 = require("node:os");
+function statsDir2() {
+  return process.env.GREENBUMP_STATS_DIR ?? (0, import_node_path28.join)((0, import_node_os3.homedir)(), ".greenbump");
+}
+function callsPath() {
+  return (0, import_node_path28.join)(statsDir2(), "llm-calls.jsonl");
+}
+async function recordLlmCall(rec, onLog) {
+  try {
+    await (0, import_promises21.mkdir)(statsDir2(), { recursive: true });
+    await (0, import_promises21.appendFile)(callsPath(), JSON.stringify(rec) + "\n", "utf8");
+  } catch (err) {
+    onLog?.(`stats: failed to record LLM call (${err.message})`);
+  }
+}
+
 // dist/engine/run.js
 var RunError = class extends Error {
 };
@@ -232229,12 +232332,13 @@ async function run(opts) {
   const to = opts.to ?? target.latest;
   log(`target: ${target.name} ${from} \u2192 ${to}`);
   let branch;
+  let baseBranch;
   const gitRepo = await isGitRepo(cwd);
   if (gitRepo && !opts.noGit) {
     if (!await isTreeClean(cwd)) {
       throw new RunError("Working tree is dirty. Commit or stash your changes first (or pass --no-git).");
     }
-    await currentBranch(cwd);
+    baseBranch = await currentBranch(cwd);
     branch = `greenbump/${target.name.replace(/[^a-zA-Z0-9._-]/g, "-")}-${to}`;
     await createBranch(cwd, branch);
     log(`created branch ${branch}`);
@@ -232263,6 +232367,7 @@ ${up.output}`);
     to,
     packageManager: pm,
     branch,
+    baseBranch,
     baselineGreen,
     neededFix: false,
     fixed: post.ok,
@@ -232300,11 +232405,18 @@ ${up.output}`);
     baseURL: opts.baseURL,
     apiKey: opts.apiKey
   });
+  const llmCallSink = (rec) => recordLlmCall({ ...rec, ts: Date.now() }, log);
   if (changelog && !opts.noCache) {
+    const digestProvider = opts.digestModel ? createProvider({
+      provider: opts.provider,
+      model: opts.digestModel,
+      baseURL: opts.baseURL,
+      apiKey: opts.apiKey
+    }) : provider;
     try {
-      const digest = await digestChangelog(provider, target.name, from, to, changelog);
+      const digest = await digestChangelog(digestProvider, target.name, from, to, changelog, llmCallSink);
       if (digest && digest.breakingChanges.length > 0) {
-        log(`changelog digest: ${digest.breakingChanges.length} breaking change(s) extracted` + (digest.fromCache ? " (from cache)" : ` (${digest.tokensUsed.inputTokens} tokens)`));
+        log(`changelog digest: ${digest.breakingChanges.length} breaking change(s) extracted` + (digest.fromCache ? " (from cache)" : ` (${digestProvider.model}, ${digest.tokensUsed.inputTokens} tokens)`));
         changelog = renderDigestForPrompt(digest) + `
 
 Raw release notes:
@@ -232330,7 +232442,8 @@ ${changelog.slice(0, 2e3)}`;
     onLog: log,
     noFreeTiers: opts.noFreeTiers,
     noCache: opts.noCache,
-    onFixSuggestion: opts.interactive ? opts.onFixSuggestion : void 0
+    onFixSuggestion: opts.interactive ? opts.onFixSuggestion : void 0,
+    onLlmCall: llmCallSink
   });
   summary.fixed = fix.fixed;
   summary.rounds = fix.rounds;
@@ -232489,7 +232602,7 @@ function renderPrBody(s2) {
 }
 
 // dist/report.js
-var import_promises21 = require("node:fs/promises");
+var import_promises22 = require("node:fs/promises");
 var REPORT_SCHEMA_VERSION = 1;
 function buildReport(runs) {
   return {
@@ -232499,7 +232612,7 @@ function buildReport(runs) {
   };
 }
 async function writeReport(path2, envelope) {
-  await (0, import_promises21.writeFile)(path2, JSON.stringify(envelope, null, 2) + "\n", "utf8");
+  await (0, import_promises22.writeFile)(path2, JSON.stringify(envelope, null, 2) + "\n", "utf8");
 }
 
 // dist/action/github.js
