@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { readFile } from "node:fs/promises";
 import { pathExists, type EcosystemAdapter, type Outdated } from "./types.js";
+import { fetchWithTimeout } from "./http.js";
 
 const DEP_BLOCK = /<dependency>\s*<groupId>([^<]+)<\/groupId>\s*<artifactId>([^<]+)<\/artifactId>\s*<version>([^<]+)<\/version>/g;
 
@@ -25,7 +26,7 @@ async function latestOnMavenCentral(groupArtifact: string): Promise<string | nul
   const [g, a] = groupArtifact.split(":");
   try {
     const url = `https://search.maven.org/solrsearch/select?q=g:${encodeURIComponent(g)}+AND+a:${encodeURIComponent(a)}&core=gav&rows=1&sort=v+desc&wt=json`;
-    const res = await fetch(url);
+    const res = await fetchWithTimeout(url);
     if (!res.ok) return null;
     const data = (await res.json()) as { response?: { docs?: Array<{ v?: string }> } };
     return data.response?.docs?.[0]?.v ?? null;

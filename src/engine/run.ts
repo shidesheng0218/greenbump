@@ -1,5 +1,5 @@
 import { detectOutdated } from "./detect.js";
-import { runChecks, type CheckOverrides } from "./checks.js";
+import { runChecks, resolveCheckCommands, type CheckOverrides } from "./checks.js";
 import { upgradeDependency } from "./upgrade.js";
 import { detectPackageManager, type PackageManager } from "./pm.js";
 import { fetchChangelog } from "./changelog.js";
@@ -8,10 +8,15 @@ import {
   isTreeClean,
   currentBranch,
   createBranch,
+  addWorktree,
+  removeWorktree,
   commitAll,
   diffStat,
   fullDiff,
 } from "./git.js";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { runFixLoop, type FixDecision, type FixSuggestion } from "../agent/fixer.js";
 import { createProvider } from "../agent/factory.js";
 import { runStaticAnalysis } from "./verify.js";
@@ -74,6 +79,11 @@ export interface RunOptions {
   onFixSuggestion?: (suggestion: FixSuggestion) => Promise<FixDecision>;
   /** run AST-level API-surface analysis after the fix */
   astAnalysis?: boolean;
+  /**
+   * run the entire upgrade and fix process in an isolated git worktree directory.
+   * Keeps the primary working tree completely clean; on failure, removes the temp worktree.
+   */
+  worktree?: boolean;
 }
 
 export interface RunSummary {
@@ -204,6 +214,9 @@ export async function run(opts: RunOptions): Promise<RunSummary> {
   // 3. git isolation
   let branch: string | undefined;
   let baseBranch: string | undefined;
+  let worktreeDir: string | undefined;
+  let effectiveCwd = cwd;
+
   const gitRepo = await isGitRepo(cwd);
   if (gitRepo && !opts.noGit) {
     if (!(await isTreeClean(cwd))) {
@@ -213,15 +226,80 @@ export async function run(opts: RunOptions): Promise<RunSummary> {
     }
     baseBranch = await currentBranch(cwd); // also ensures HEAD resolves
     branch = `greenbump/${target.name.replace(/[^a-zA-Z0-9._-]/g, "-")}-${to}`;
-    await createBranch(cwd, branch);
-    log(`created branch ${branch}`);
+
+    if (opts.worktree) {
+      worktreeDir = await mkdtemp(join(tmpdir(), "greenbump-wt-"));
+      await addWorktree(cwd, worktreeDir, branch);
+      effectiveCwd = worktreeDir;
+      log(`created isolated worktree in ${worktreeDir} on branch ${branch}`);
+    } else {
+      await createBranch(cwd, branch);
+      log(`created branch ${branch}`);
+    }
   }
+
+  try {
+    return await runInContext({
+      ...opts,
+      cwd: effectiveCwd,
+      pm,
+      target,
+      from,
+      to,
+      branch,
+      baseBranch,
+      startedAt,
+      log,
+      checkOverrides,
+    });
+  } finally {
+    if (worktreeDir) {
+      // Clean up worktree from disk and git index. The branch itself remains in repo!
+      await removeWorktree(cwd, worktreeDir, true).catch(() => {});
+      await rm(worktreeDir, { recursive: true, force: true }).catch(() => {});
+      log(`cleaned up isolated worktree`);
+    }
+  }
+}
+
+interface ContextRunArgs extends RunOptions {
+  pm: PackageManager;
+  target: { name: string; current: string; latest: string };
+  from: string;
+  to: string;
+  branch?: string;
+  baseBranch?: string;
+  startedAt: number;
+  log: (m: string) => void;
+  checkOverrides: CheckOverrides;
+}
+
+async function runInContext(args: ContextRunArgs): Promise<RunSummary> {
+  const {
+    cwd,
+    pm,
+    target,
+    from,
+    to,
+    branch,
+    baseBranch,
+    startedAt,
+    log,
+    checkOverrides,
+  } = args;
+  const opts = args;
 
   // 4. Performance baseline (if regression detection enabled)
   let perfBaseline;
   if (opts.detectRegressions) {
     log("capturing performance baseline…");
-    perfBaseline = await captureBaseline(cwd);
+    const cmds = await resolveCheckCommands(pm, cwd, checkOverrides);
+    perfBaseline = await captureBaseline(cwd, {
+      // Bare install is only meaningful for the npm-family package managers
+      install: ["npm", "yarn", "pnpm"].includes(pm) ? { cmd: pm, args: ["install"] } : undefined,
+      build: cmds.build,
+      test: cmds.test,
+    });
   }
 
   // 4a. baseline — refuse to run if it's already broken, so we never chase
@@ -287,7 +365,7 @@ export async function run(opts: RunOptions): Promise<RunSummary> {
 
   // 7. broke — fetch changelog context, then run the fix agent
   summary.neededFix = true;
-  let changelog = await fetchChangelog(target.name, from, to);
+  let changelog = await fetchChangelog(target.name, from, to, { cache: !opts.noCache });
   if (changelog) log(`found changelog/release notes for ${target.name}`);
 
   const provider = createProvider({
@@ -366,13 +444,16 @@ export async function run(opts: RunOptions): Promise<RunSummary> {
   log("running static analysis…");
   const staticResults = await runStaticAnalysis(cwd, { strictLint: false });
   const typesFailed = staticResults.some(r => r.stage === "types" && !r.passed);
+  // Lint runs non-strict (passed stays true) but its warnings still surface
+  // here — previously they were computed by runStaticAnalysis and dropped.
+  const analysisWarnings = staticResults.flatMap((r) => r.warnings || []);
 
   if (typesFailed) {
     log("⚠️  TypeScript type check failed after fix");
     summary.needsReview = true;
-    summary.staticAnalysisWarnings = staticResults
-      .filter(r => !r.passed)
-      .flatMap(r => r.warnings || []);
+  }
+  if (analysisWarnings.length > 0) {
+    summary.staticAnalysisWarnings = analysisWarnings;
   }
 
   // Detect suspicious changes
@@ -415,7 +496,7 @@ export async function run(opts: RunOptions): Promise<RunSummary> {
       enabled: true,
       services: opts.services,
       keepContainer: opts.keepContainer,
-      timeout: 600,
+      timeout: 600_000,
     });
 
     if (!sandboxResult.skipped) {
@@ -476,10 +557,23 @@ async function maybeCommit(
   const note = summary.neededFix
     ? ` and fix ${summary.editedFiles.length} file(s)`
     : "";
-  await commitAll(
-    cwd,
-    `chore(deps): bump ${summary.dep} ${summary.from} → ${summary.to}${note}\n\nAutomated by greenbump.`,
-  );
+  try {
+    await commitAll(
+      cwd,
+      `chore(deps): bump ${summary.dep} ${summary.from} → ${summary.to}${note}\n\nAutomated by greenbump.`,
+    );
+  } catch (err) {
+    // A failed commit (no git identity, hooks, …) must not pretend to have
+    // committed — the changes stay in the working tree and the run is
+    // flagged for review instead of crashing.
+    summary.committed = false;
+    summary.needsReview = true;
+    summary.staticAnalysisWarnings = [
+      ...(summary.staticAnalysisWarnings ?? []),
+      `git commit failed: ${(err as Error).message}`,
+    ];
+    return;
+  }
   summary.committed = true;
   summary.diffStat = await diffStat(cwd, "HEAD~1");
   if (summary.neededFix) summary.fullDiff = await fullDiff(cwd, "HEAD~1");

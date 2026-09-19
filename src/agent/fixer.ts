@@ -1,5 +1,6 @@
-import { readFile, writeFile, readdir, stat } from "node:fs/promises";
+import { readFile, writeFile, readdir, stat, rm } from "node:fs/promises";
 import { resolve, relative, isAbsolute, join } from "node:path";
+import { createHash } from "node:crypto";
 import { runChecks, type CheckOverrides } from "../engine/checks.js";
 import { getAdapter, type PackageManager } from "../engine/pm.js";
 import type { Msg, Provider, ToolSpec, TurnResult } from "./provider.js";
@@ -111,6 +112,7 @@ Your job: edit the project's source code so that build and tests pass again — 
 
 Rules:
 - Make the smallest correct change that adapts the code to the new version's API.
+- Prefer edit_file for updating existing code (targeted search/replace) to avoid accidentally truncating or omitting lines. Only use write_file for new files or complete rewrites.
 - Prefer following each dependency's documented migration path (renamed exports, changed signatures, moved modules, new required options). If release notes are provided below, treat them as authoritative over guessing.
 - Use search_code to find ALL call sites of the breaking API across the repo before editing — a partial fix that leaves other files broken wastes rounds.
 - Never edit ${protectedFiles}. The upgrade is intentional.
@@ -153,8 +155,22 @@ const tools: ToolSpec[] = [
     },
   },
   {
+    name: "edit_file",
+    description:
+      "Replace an exact chunk of text in an existing file. Strongly preferred over write_file to avoid accidental truncations or lost code.",
+    parameters: {
+      type: "object",
+      properties: {
+        path: { type: "string", description: "project-relative file path" },
+        old_string: { type: "string", description: "exact string to replace (must match uniquely in file)" },
+        new_string: { type: "string", description: "replacement string" },
+      },
+      required: ["path", "old_string", "new_string"],
+    },
+  },
+  {
     name: "write_file",
-    description: "Overwrite a project-relative file with new contents.",
+    description: "Overwrite a project-relative file with new contents (or create new file). For small edits, prefer edit_file.",
     parameters: {
       type: "object",
       properties: { path: { type: "string" }, content: { type: "string" } },
@@ -295,6 +311,64 @@ async function toolResult(
       if (s.size > 200_000) return { text: "(file too large to read)" };
       return { text: await readFile(abs, "utf8") };
     }
+    case "edit_file": {
+      const abs = safePath(cwd, input.path);
+      const rel = relative(cwd, abs);
+      const adapter = getAdapter(pm);
+      if (isProtectedWrite(rel, adapter.manifestFiles, adapter.lockFiles)) {
+        return {
+          text: `error: edit to ${input.path} blocked — it is a dependency manifest/lockfile or secrets file.`,
+        };
+      }
+      let content = "";
+      try {
+        content = await readFile(abs, "utf8");
+      } catch (err) {
+        return { text: `error: file ${input.path} does not exist (use write_file to create new files)` };
+      }
+
+      const oldStr = input.old_string as string;
+      const newStr = input.new_string as string;
+
+      if (!oldStr) {
+        return { text: `error: old_string cannot be empty` };
+      }
+
+      const occurrences = content.split(oldStr).length - 1;
+      if (occurrences === 0) {
+        return {
+          text: `error: old_string not found in ${input.path}. Make sure the string matches verbatim, including indentation and whitespace.`,
+        };
+      }
+      if (occurrences > 1) {
+        return {
+          text: `error: old_string matched ${occurrences} locations in ${input.path}. Please provide more surrounding lines for unique context.`,
+        };
+      }
+
+      const updated = content.replace(oldStr, newStr);
+
+      if (onFixSuggestion) {
+        const decision = await onFixSuggestion({
+          path: input.path,
+          diff: simpleDiff(input.path, content, updated),
+        });
+        switch (decision.action) {
+          case "reject":
+            return { text: `edit to ${input.path} REJECTED by user — do not retry the same change`, skipped: true };
+          case "skip":
+            return { text: `edit to ${input.path} skipped by user`, skipped: true };
+          case "edit":
+            await writeFile(abs, decision.content, "utf8");
+            return { text: `applied user-edited changes to ${input.path}` };
+          case "accept":
+            break;
+        }
+      }
+
+      await writeFile(abs, updated, "utf8");
+      return { text: `edited ${input.path}` };
+    }
     case "write_file": {
       const abs = safePath(cwd, input.path);
       const rel = relative(cwd, abs);
@@ -306,14 +380,29 @@ async function toolResult(
       }
       let content = input.content as string;
 
+      // Anti-truncation guard: if existing file has > 40 lines and new content drops > 50% lines,
+      // warn model to use edit_file or verify it didn't accidentally truncate.
+      let oldContent = "";
+      let exists = false;
+      try {
+        oldContent = await readFile(abs, "utf8");
+        exists = true;
+      } catch {
+        // new file
+      }
+
+      if (exists) {
+        const oldLines = oldContent.split("\n").length;
+        const newLines = content.split("\n").length;
+        if (oldLines > 40 && newLines < oldLines * 0.5) {
+          return {
+            text: `error: write_file rejected due to code truncation safety guard. The existing file has ${oldLines} lines, but proposed content has only ${newLines} lines (loss of > 50%). If you are fixing a small section, use edit_file instead to avoid deleting code.`,
+          };
+        }
+      }
+
       // Interactive gate: show the proposed edit and wait for a decision.
       if (onFixSuggestion) {
-        let oldContent = "";
-        try {
-          oldContent = await readFile(abs, "utf8");
-        } catch {
-          // new file
-        }
         const decision = await onFixSuggestion({
           path: input.path,
           diff: simpleDiff(input.path, oldContent, content),
@@ -409,7 +498,6 @@ export async function runFixLoop(opts: FixOptions): Promise<FixResult> {
   const { provider, pm, checkOverrides } = opts;
   const log = opts.onLog ?? (() => {});
   const usage = { inputTokens: 0, outputTokens: 0 };
-  const editedFiles = new Set<string>();
   const SYSTEM = buildSystemPrompt(pm, opts.deps);
 
   // ── Context optimization: trim failure output, find candidate files ──────
@@ -427,7 +515,24 @@ export async function runFixLoop(opts: FixOptions): Promise<FixResult> {
   const primaryDep = opts.deps?.[0]?.dep ?? opts.dep;
   const primaryFrom = opts.deps?.[0]?.from ?? opts.from;
   const primaryTo = opts.deps?.[0]?.to ?? opts.to;
-  const contextKey = buildContextKey(primaryDep, primaryFrom, primaryTo, trimmedFailure);
+  // Bind the tier-3 cache key to the actual file contents being fixed —
+  // same error text + different code must NOT replay another project's fix.
+  const fingerprint = createHash("sha256");
+  for (const f of candidateFiles) {
+    try {
+      fingerprint.update(f);
+      fingerprint.update(await readFile(join(opts.cwd, f), "utf8"));
+    } catch {
+      // unreadable — leave it out of the fingerprint
+    }
+  }
+  const contextKey = buildContextKey(
+    primaryDep,
+    primaryFrom,
+    primaryTo,
+    trimmedFailure,
+    candidateFiles.length > 0 ? fingerprint.digest("hex").slice(0, 16) : undefined,
+  );
 
   // ── Free tiers: codemods → learned patterns → cached LLM fix ────────────
   if (!opts.noFreeTiers) {
@@ -439,6 +544,10 @@ export async function runFixLoop(opts: FixOptions): Promise<FixResult> {
       failureOutput: trimmedFailure,
       candidateFiles: candidateFiles.length > 0 ? candidateFiles : ["."],
     };
+
+    // Snapshot candidate files once so any tier whose rewrite fails the check
+    // can be rolled back cleanly (regex codemods can produce broken code).
+    const preTierSnapshot = await snapshotFiles(opts.cwd, patternCtx.candidateFiles);
 
     // Tier 1: built-in codemods
     const t1 = await tryBuiltinCodemods(patternCtx);
@@ -452,8 +561,8 @@ export async function runFixLoop(opts: FixOptions): Promise<FixResult> {
         log("tier 1 (codemod): check passed — fixed with 0 tokens");
         return tierResult(true, t1.editedFiles, FixTier.REGEX);
       }
-      log("tier 1 (codemod): edit applied but check still failing — escalating");
-      for (const f of t1.editedFiles) editedFiles.add(f);
+      log("tier 1 (codemod): edit applied but check still failing — rolling back and escalating");
+      await rollbackTierEdits(opts.cwd, t1.editedFiles, preTierSnapshot);
     }
 
     // Tier 2: learned patterns from cache
@@ -464,10 +573,10 @@ export async function runFixLoop(opts: FixOptions): Promise<FixResult> {
         const check = await runChecks(pm, opts.cwd, checkOverrides);
         if (check.ok) {
           log("tier 2 (learned pattern): check passed — fixed with 0 tokens");
-          return tierResult(true, [...editedFiles, ...t2.editedFiles], FixTier.RULE, true);
+          return tierResult(true, t2.editedFiles, FixTier.RULE, true);
         }
-        log("tier 2 (learned pattern): edit applied but check still failing — escalating");
-        for (const f of t2.editedFiles) editedFiles.add(f);
+        log("tier 2 (learned pattern): edit applied but check still failing — rolling back and escalating");
+        await rollbackTierEdits(opts.cwd, t2.editedFiles, preTierSnapshot);
       }
 
       // Tier 3: cached LLM fix for identical failure
@@ -477,10 +586,10 @@ export async function runFixLoop(opts: FixOptions): Promise<FixResult> {
         const check = await runChecks(pm, opts.cwd, checkOverrides);
         if (check.ok) {
           log("tier 3 (cached fix): check passed — fixed with 0 tokens");
-          return tierResult(true, [...editedFiles, ...t3.editedFiles], FixTier.CACHED, true);
+          return tierResult(true, t3.editedFiles, FixTier.CACHED, true);
         }
-        log("tier 3 (cached fix): didn't resolve in this project — escalating to LLM");
-        for (const f of t3.editedFiles) editedFiles.add(f);
+        log("tier 3 (cached fix): didn't resolve in this project — rolling back and escalating to LLM");
+        await rollbackTierEdits(opts.cwd, t3.editedFiles, preTierSnapshot);
       }
     }
   }
@@ -550,7 +659,7 @@ Fix the source code so build and tests pass. Call run_check to verify before fin
 
     const results = [];
     for (const tc of turn.toolCalls) {
-      if (tc.name === "write_file") {
+      if (tc.name === "write_file" || tc.name === "edit_file") {
         llmEditedFiles.add((tc.input as any).path);
       }
       let out: { text: string; checkOk?: boolean; skipped?: boolean };
@@ -578,7 +687,7 @@ Fix the source code so build and tests pass. Call run_check to verify before fin
 
   // Learn from a successful LLM fix so the next identical failure is free.
   if (fixed && !opts.noCache) {
-    const allEdited = [...editedFiles, ...llmEditedFiles];
+    const allEdited = [...llmEditedFiles];
     await learnFromSuccessfulFix(
       {
         cwd: opts.cwd,
@@ -602,7 +711,7 @@ Fix the source code so build and tests pass. Call run_check to verify before fin
     rounds: Math.min(round, opts.maxRounds),
     unverifiable: false,
     usage,
-    editedFiles: [...editedFiles, ...llmEditedFiles],
+    editedFiles: [...llmEditedFiles],
     budgetExceeded,
     fixedByTier: fixed ? FixTier.LLM : undefined,
   };
@@ -624,4 +733,44 @@ function tierResult(
     fixedByTier: tier,
     cacheHit,
   };
+}
+
+/**
+ * Snapshot the current contents of the given candidate files (those that
+ * exist) so a failed free-tier rewrite can be rolled back instead of
+ * leaving half-broken code for the next tier to trip over.
+ */
+async function snapshotFiles(cwd: string, files: string[]): Promise<Map<string, string>> {
+  const snap = new Map<string, string>();
+  for (const f of files) {
+    try {
+      const abs = join(cwd, f);
+      if (!(await stat(abs)).isFile()) continue;
+      snap.set(f, await readFile(abs, "utf8"));
+    } catch {
+      // unreadable — nothing to snapshot
+    }
+  }
+  return snap;
+}
+
+/**
+ * Restore tier-edited files to their pre-tier contents; files the tier
+ * created (not in the snapshot) are removed. Best-effort.
+ */
+async function rollbackTierEdits(
+  cwd: string,
+  editedFiles: string[],
+  snapshot: Map<string, string>,
+): Promise<void> {
+  for (const f of editedFiles) {
+    const abs = join(cwd, f);
+    try {
+      const prev = snapshot.get(f);
+      if (prev === undefined) await rm(abs, { force: true });
+      else await writeFile(abs, prev, "utf8");
+    } catch {
+      // best effort — the git branch is the outer safety net
+    }
+  }
 }

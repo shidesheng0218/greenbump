@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
 import { pathExists, type EcosystemAdapter, type Outdated } from "./types.js";
+import { fetchWithTimeout } from "./http.js";
 
 // Matches lines like: implementation("group:artifact:1.2.3") or implementation 'group:artifact:1.2.3'
 const DEP_LINE = /(implementation|api|testImplementation|compileOnly|runtimeOnly)[\s(]+['"]([^:'"]+):([^:'"]+):([^'")]+)['")]/g;
@@ -32,7 +33,7 @@ async function directDeps(cwd: string, file: string): Promise<Array<{ group: str
 async function latestOnMavenCentral(group: string, artifact: string): Promise<string | null> {
   try {
     const url = `https://search.maven.org/solrsearch/select?q=g:${encodeURIComponent(group)}+AND+a:${encodeURIComponent(artifact)}&core=gav&rows=1&sort=v+desc&wt=json`;
-    const res = await fetch(url);
+    const res = await fetchWithTimeout(url);
     if (!res.ok) return null;
     const data = (await res.json()) as { response?: { docs?: Array<{ v?: string }> } };
     return data.response?.docs?.[0]?.v ?? null;

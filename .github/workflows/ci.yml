@@ -68,3 +68,18 @@ jobs:
 
       - name: Test greenbump --list-ecosystems
         run: node dist/cli.js --list-ecosystems | grep -q "${{ matrix.ecosystem.name }}"
+
+  action-bundle:
+    name: Verify action bundle is fresh
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      # The committed action-dist must always match the source — otherwise a
+      # broken bundle is only discovered at release time.
+      - run: npm ci
+      - run: npm run build:action
+      - run: git diff --exit-code action-dist/

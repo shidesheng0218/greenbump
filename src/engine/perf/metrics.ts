@@ -1,7 +1,8 @@
 import { existsSync } from "fs";
 import { join } from "path";
-import { readFile, writeFile, mkdir } from "fs/promises";
-import { exec } from "../git.js";
+import { readFile, writeFile, mkdir, readdir, stat } from "fs/promises";
+import { exec } from "../exec.js";
+import type { CheckCommand } from "../ecosystems/index.js";
 
 export interface PerformanceMetrics {
   installTime?: number;      // seconds
@@ -13,56 +14,50 @@ export interface PerformanceMetrics {
 }
 
 /**
- * Check if project has build script
+ * Get total size of a directory in bytes. Pure Node recursive walk —
+ * `du -sb` is GNU-only and silently returns 0 on macOS.
  */
-async function hasBuildScript(cwd: string): Promise<boolean> {
-  const pkgPath = join(cwd, "package.json");
-  if (!existsSync(pkgPath)) return false;
-
-  try {
-    const content = await readFile(pkgPath, "utf-8");
-    const pkg = JSON.parse(content);
-    return pkg.scripts?.build !== undefined;
-  } catch {
-    return false;
+export async function getTotalSize(dirPath: string): Promise<number> {
+  let total = 0;
+  async function walk(dir: string): Promise<void> {
+    let entries;
+    try {
+      entries = await readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      const abs = join(dir, e.name);
+      if (e.isDirectory()) {
+        await walk(abs);
+      } else if (e.isFile()) {
+        const s = await stat(abs).catch(() => null);
+        if (s) total += s.size;
+      }
+    }
   }
+  await walk(dirPath);
+  return total;
+}
+
+const MEASURE_TIMEOUT_MS = 300_000;
+
+export interface BaselineCommands {
+  /** bare install command for the ecosystem (npm-family only); skipped otherwise */
+  install?: CheckCommand;
+  build?: CheckCommand;
+  test?: CheckCommand;
 }
 
 /**
- * Check if project has test script
+ * Capture performance baseline before upgrade. Commands come from the
+ * ecosystem adapter (via resolveCheckCommands at the call site) — never
+ * hardcoded to npm, so non-JS ecosystems don't get bogus measurements.
  */
-async function hasTestScript(cwd: string): Promise<boolean> {
-  const pkgPath = join(cwd, "package.json");
-  if (!existsSync(pkgPath)) return false;
-
-  try {
-    const content = await readFile(pkgPath, "utf-8");
-    const pkg = JSON.parse(content);
-    return pkg.scripts?.test !== undefined;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Get total size of directory in bytes
- */
-async function getTotalSize(dirPath: string): Promise<number> {
-  if (!existsSync(dirPath)) return 0;
-
-  try {
-    const result = await exec("du", ["-sb", dirPath], { cwd: dirPath });
-    const match = result.stdout.match(/^(\d+)/);
-    return match ? parseInt(match[1], 10) : 0;
-  } catch {
-    return 0;
-  }
-}
-
-/**
- * Capture performance baseline before upgrade
- */
-export async function captureBaseline(cwd: string): Promise<PerformanceMetrics> {
+export async function captureBaseline(
+  cwd: string,
+  commands: BaselineCommands = {},
+): Promise<PerformanceMetrics> {
   console.log("📊 Capturing performance baseline...");
 
   const metrics: PerformanceMetrics = {
@@ -71,17 +66,19 @@ export async function captureBaseline(cwd: string): Promise<PerformanceMetrics> 
 
   try {
     // Measure install time
-    console.log("   Measuring install time...");
-    const installStart = Date.now();
-    await exec("npm", ["install"], { cwd });
-    metrics.installTime = (Date.now() - installStart) / 1000;
-    console.log(`   ✓ Install: ${metrics.installTime.toFixed(1)}s`);
+    if (commands.install) {
+      console.log("   Measuring install time...");
+      const installStart = Date.now();
+      await exec(commands.install.cmd, commands.install.args, { cwd, timeout: MEASURE_TIMEOUT_MS });
+      metrics.installTime = (Date.now() - installStart) / 1000;
+      console.log(`   ✓ Install: ${metrics.installTime.toFixed(1)}s`);
+    }
 
-    // Measure build time (if build script exists)
-    if (await hasBuildScript(cwd)) {
+    // Measure build time (if a build command is known)
+    if (commands.build) {
       console.log("   Measuring build time...");
       const buildStart = Date.now();
-      await exec("npm", ["run", "build"], { cwd });
+      await exec(commands.build.cmd, commands.build.args, { cwd, timeout: MEASURE_TIMEOUT_MS });
       metrics.buildTime = (Date.now() - buildStart) / 1000;
       console.log(`   ✓ Build: ${metrics.buildTime.toFixed(1)}s`);
 
@@ -94,10 +91,10 @@ export async function captureBaseline(cwd: string): Promise<PerformanceMetrics> 
     }
 
     // Measure test time
-    if (await hasTestScript(cwd)) {
+    if (commands.test) {
       console.log("   Measuring test time...");
       const testStart = Date.now();
-      await exec("npm", ["test"], { cwd });
+      await exec(commands.test.cmd, commands.test.args, { cwd, timeout: MEASURE_TIMEOUT_MS });
       metrics.testTime = (Date.now() - testStart) / 1000;
       console.log(`   ✓ Test: ${metrics.testTime.toFixed(1)}s`);
     }

@@ -148,10 +148,6 @@ export async function generateComposeFile(
 
 services:
 ${servicesYaml}
-
-networks:
-  default:
-    name: greenbump_network
 `;
 }
 

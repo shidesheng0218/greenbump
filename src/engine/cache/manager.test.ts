@@ -81,3 +81,20 @@ test("CacheManager: clear removes entries", async () => {
     assert.equal(await cache.getChangelog("react", "18.0.0", "19.0.0"), null);
   });
 });
+
+test("CacheManager: prune evicts expired entries", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "greenbump-cache-test-"));
+  try {
+    // TTL of 1ms: everything is immediately expired
+    const cache = new CacheManager({ cacheDir: dir, ttlMs: 1 });
+    await cache.init();
+    // llm-fixes entries carry no embedded TTL, so the manager's 1ms ttl applies
+    await cache.setLlmFix("k", { edits: {}, hits: 0, model: "m" });
+    await new Promise((r) => setTimeout(r, 5));
+    const pruned = await cache.prune();
+    assert.ok(pruned >= 1);
+    assert.equal(await cache.getLlmFix("k"), null);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

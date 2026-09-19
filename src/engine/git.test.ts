@@ -14,6 +14,8 @@ import {
   diffStat,
   fullDiff,
   changedFiles,
+  addWorktree,
+  removeWorktree,
 } from "./git.js";
 
 async function withRepo(fn: (dir: string) => Promise<void>): Promise<void> {
@@ -140,5 +142,58 @@ test("commitAll: --no-verify means a failing pre-commit hook does not block the 
     assert.equal(await isTreeClean(dir), true);
     const log = await exec("git", ["log", "-1", "--pretty=%s"], { cwd: dir });
     assert.equal(log.stdout.trim(), "should succeed despite failing hook");
+  });
+});
+
+test("commitAll: throws when there is nothing to commit instead of pretending success", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "greenbump-git-"));
+  try {
+    await exec("git", ["init", "-q"], { cwd: dir });
+    await exec("git", ["config", "user.email", "test@greenbump.dev"], { cwd: dir });
+    await exec("git", ["config", "user.name", "greenbump test"], { cwd: dir });
+    await writeFile(join(dir, "a.txt"), "one", "utf8");
+    await commitAll(dir, "init");
+    // Second commit with no changes must fail loudly
+    await assert.rejects(() => commitAll(dir, "empty"), /git commit failed/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("checkout: throws on a nonexistent ref", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "greenbump-git-"));
+  try {
+    await exec("git", ["init", "-q"], { cwd: dir });
+    await exec("git", ["config", "user.email", "test@greenbump.dev"], { cwd: dir });
+    await exec("git", ["config", "user.name", "greenbump test"], { cwd: dir });
+    await writeFile(join(dir, "a.txt"), "one", "utf8");
+    await commitAll(dir, "init");
+    await assert.rejects(() => checkout(dir, "no-such-branch"), /git checkout/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("addWorktree + removeWorktree: isolates changes on new branch without affecting main repo", async () => {
+  await withInitializedRepo(async (dir) => {
+    const wtDir = await mkdtemp(join(tmpdir(), "greenbump-wt-test-"));
+    try {
+      await addWorktree(dir, wtDir, "wt-branch");
+      assert.equal(await currentBranch(wtDir), "wt-branch");
+
+      // Modifying worktree does not touch original dir
+      await writeFile(join(wtDir, "worktree-file.txt"), "isolated", "utf8");
+      await commitAll(wtDir, "commit in worktree");
+
+      const { existsSync } = await import("node:fs");
+      assert.equal(existsSync(join(dir, "worktree-file.txt")), false);
+
+      await removeWorktree(dir, wtDir, true);
+      // Branch exists in main repo
+      const branches = await exec("git", ["branch"], { cwd: dir });
+      assert.ok(branches.stdout.includes("wt-branch"));
+    } finally {
+      await rm(wtDir, { recursive: true, force: true }).catch(() => {});
+    }
   });
 });

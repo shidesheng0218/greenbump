@@ -60,7 +60,7 @@ inputs:
     required: false
 outputs:
   status:
-    description: "One of: pr-opened, pr-needs-review, no-changes, unfixed, skipped."
+    description: "One of: pr-opened, pr-needs-review, pr-failed, no-changes, unfixed, skipped."
   pr-url:
     description: "URL of the opened PR, if any."
   dependency:
@@ -72,5 +72,5 @@ outputs:
   fixed:
     description: "Whether build + tests ended up green."
 runs:
-  using: "node20"
+  using: "node24"
   main: "action-dist/index.cjs"

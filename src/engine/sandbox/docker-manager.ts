@@ -1,4 +1,4 @@
-import { exec } from "../git.js";
+import { exec } from "../exec.js";
 import { existsSync } from "fs";
 import { join } from "path";
 import { readFile, writeFile, rm } from "fs/promises";
@@ -12,6 +12,7 @@ export interface DockerInfo {
 export interface ContainerRunOptions {
   image: string;
   networkMode?: string;
+  /** milliseconds; how long the container may run before being killed */
   timeout?: number;
   workdir?: string;
   env?: Record<string, string>;
@@ -26,6 +27,24 @@ export interface ContainerResult {
 }
 
 /**
+ * Compose command detection: v1 standalone binary or v2 `docker compose`
+ * plugin. Cached for the process lifetime.
+ */
+let composeCommandCache: string[] | null | undefined;
+
+async function composeCommand(): Promise<string[] | null> {
+  if (composeCommandCache !== undefined) return composeCommandCache;
+  if ((await exec("docker-compose", ["--version"], { cwd: process.cwd() })).code === 0) {
+    composeCommandCache = ["docker-compose"];
+  } else if ((await exec("docker", ["compose", "version"], { cwd: process.cwd() })).code === 0) {
+    composeCommandCache = ["docker", "compose"];
+  } else {
+    composeCommandCache = null;
+  }
+  return composeCommandCache;
+}
+
+/**
  * Check if Docker is available and running
  */
 export async function checkDockerAvailable(): Promise<DockerInfo> {
@@ -36,19 +55,15 @@ export async function checkDockerAvailable(): Promise<DockerInfo> {
 
   try {
     const versionResult = await exec("docker", ["--version"], { cwd: process.cwd() });
+    if (versionResult.code !== 0) return info;
     info.version = versionResult.stdout.trim();
 
     // Check if Docker daemon is running
-    await exec("docker", ["ps"], { cwd: process.cwd() });
+    const psResult = await exec("docker", ["ps"], { cwd: process.cwd() });
+    if (psResult.code !== 0) return info;
     info.available = true;
 
-    // Check docker-compose availability
-    try {
-      await exec("docker-compose", ["--version"], { cwd: process.cwd() });
-      info.composeAvailable = true;
-    } catch {
-      // docker-compose not available, but that's okay
-    }
+    info.composeAvailable = (await composeCommand()) !== null;
   } catch {
     // Docker not available
   }
@@ -115,21 +130,18 @@ export async function runVerificationInContainer(
   let buildSuccess = false;
   let testsPassed = false;
 
-  try {
-    const result = await exec("docker", args, {
-      cwd,
-      timeout: options.timeout || 600000, // 10 minutes default
-    });
-    stdout = result.stdout;
-    stderr = result.stderr;
-    exitCode = 0;
+  const result = await exec("docker", args, {
+    cwd,
+    timeout: options.timeout || 600000, // 10 minutes default (milliseconds)
+  });
+  stdout = result.stdout;
+  stderr = result.stderr;
+  exitCode = result.code;
+
+  if (result.code === 0) {
     buildSuccess = true;
     testsPassed = true;
-  } catch (error: any) {
-    exitCode = error.exitCode || 1;
-    stdout = error.stdout || "";
-    stderr = error.stderr || "";
-
+  } else {
     // Determine what failed
     buildSuccess = !stderr.includes("npm run build") && !stdout.includes("build failed");
     testsPassed = false;
@@ -153,11 +165,15 @@ export async function startComposeServices(
 ): Promise<string> {
   console.log("🚀 Starting docker-compose services...");
 
+  const cmd = await composeCommand();
+  if (!cmd) throw new Error("docker-compose is not available");
+
   const projectName = `greenbump-${Date.now()}`;
 
   await exec(
-    "docker-compose",
+    cmd[0],
     [
+      ...cmd.slice(1),
       "-f", composeFile,
       "-p", projectName,
       "up", "-d",
@@ -176,9 +192,11 @@ export async function checkServiceHealth(
   serviceName: string
 ): Promise<boolean> {
   try {
+    const cmd = await composeCommand();
+    if (!cmd) return false;
     const result = await exec(
-      "docker-compose",
-      ["-p", projectName, "ps", "--filter", `name=${serviceName}`, "--format", "json"],
+      cmd[0],
+      [...cmd.slice(1), "-p", projectName, "ps", "--filter", `name=${serviceName}`, "--format", "json"],
       { cwd: process.cwd() }
     );
 
@@ -198,6 +216,7 @@ export async function checkServiceHealth(
 export async function waitForServices(
   projectName: string,
   services: string[],
+  /** seconds */
   timeout: number = 60
 ): Promise<void> {
   console.log("⏳ Waiting for services to become healthy...");
@@ -237,10 +256,14 @@ export async function stopComposeServices(
 ): Promise<void> {
   console.log("🛑 Stopping docker-compose services...");
 
+  const cmd = await composeCommand();
+  if (!cmd) return;
+
   try {
     await exec(
-      "docker-compose",
+      cmd[0],
       [
+        ...cmd.slice(1),
         "-f", composeFile,
         "-p", projectName,
         "down", "-v",

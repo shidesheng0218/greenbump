@@ -581,3 +581,94 @@ test("runFixLoop: interactive accept applies the edit as before", async () => {
     assert.equal(await readFile(join(dir, "app.js"), "utf8"), "new content");
   });
 });
+
+test("runFixLoop: a codemod whose rewrite fails the check is rolled back before escalating to the LLM", async () => {
+  await withTmpDir(async (dir) => {
+    // Build always fails, so the codemod's rewrite can never go green.
+    await writePkg(dir, { build: "node -e \"process.exit(1)\"" });
+    const original = `import ReactDOM from 'react-dom';\nReactDOM.render(null, document.getElementById('root'));\n`;
+    await writeFile(join(dir, "index.js"), original, "utf8");
+
+    const provider = scriptedProvider([
+      { toolCalls: [{ id: "1", name: "run_check", input: {} }] },
+    ]);
+
+    const result = await runFixLoop({
+      ...baseOpts,
+      cwd: dir,
+      provider,
+      dep: "react-dom",
+      from: "18.3.1",
+      to: "19.2.0",
+      failureOutput: "TypeError: ReactDOM.render is not a function\n    at index.js:2:1",
+      maxRounds: 1,
+    });
+
+    assert.equal(result.fixed, false);
+    // The codemod edited index.js, the check failed, so the file must be
+    // restored byte-for-byte and not counted as an edit.
+    const { readFile } = await import("node:fs/promises");
+    assert.equal(await readFile(join(dir, "index.js"), "utf8"), original);
+    assert.deepEqual(result.editedFiles, []);
+    // And the LLM loop must have run (escalated).
+    assert.ok(provider.calls.length >= 1);
+  });
+});
+
+test("runFixLoop: edit_file replaces targeted string uniquely and records editedFile", async () => {
+  await withTmpDir(async (dir) => {
+    await writePkg(dir, { build: "node -e \"process.exit(0)\"", test: "node -e \"process.exit(0)\"" });
+    await writeFile(join(dir, "app.js"), "const x = 1;\nconsole.log(x);\n", "utf8");
+
+    const provider = scriptedProvider([
+      {
+        toolCalls: [
+          {
+            id: "1",
+            name: "edit_file",
+            input: { path: "app.js", old_string: "const x = 1;", new_string: "const x = 2;" },
+          },
+          { id: "2", name: "run_check", input: {} },
+        ],
+      },
+    ]);
+
+    const result = await runFixLoop({ ...baseOpts, cwd: dir, provider });
+    assert.equal(result.fixed, true);
+    assert.deepEqual(result.editedFiles, ["app.js"]);
+    const { readFile } = await import("node:fs/promises");
+    assert.equal(await readFile(join(dir, "app.js"), "utf8"), "const x = 2;\nconsole.log(x);\n");
+  });
+});
+
+test("runFixLoop: write_file rejects massive code shrinkage on large files", async () => {
+  await withTmpDir(async (dir) => {
+    await writePkg(dir, { build: "node -e \"process.exit(0)\"" });
+    // Create a 60-line file
+    const longContent = Array.from({ length: 60 }, (_, i) => `// line ${i}`).join("\n");
+    await writeFile(join(dir, "big.js"), longContent, "utf8");
+
+    const provider = scriptedProvider([
+      {
+        toolCalls: [
+          {
+            id: "1",
+            name: "write_file",
+            input: { path: "big.js", content: "// truncated to 5 lines\nlet x = 1;\n" },
+          },
+        ],
+      },
+      { toolCalls: [{ id: "2", name: "run_check", input: {} }] },
+    ]);
+
+    await runFixLoop({ ...baseOpts, cwd: dir, provider, maxRounds: 2 });
+    const secondCallMessages = provider.calls[1];
+    const toolMsg = secondCallMessages.find((m) => m.role === "tool") as any;
+    assert.ok(toolMsg);
+    assert.match(toolMsg.results[0].content, /rejected due to code truncation safety guard/);
+
+    const { readFile } = await import("node:fs/promises");
+    // File must NOT be truncated
+    assert.equal(await readFile(join(dir, "big.js"), "utf8"), longContent);
+  });
+});

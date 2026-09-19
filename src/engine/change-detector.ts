@@ -1,7 +1,4 @@
-import { exec } from "node:child_process";
-import { promisify } from "node:util";
-
-const execAsync = promisify(exec);
+import { exec } from "./exec.js";
 
 export interface SuspiciousChange {
   type: "test-modified" | "large-deletion" | "test-commented" | "test-removed";
@@ -17,13 +14,16 @@ export interface SuspiciousChange {
 export async function detectSuspiciousChanges(
   cwd: string
 ): Promise<SuspiciousChange[]> {
+  // Project exec: spawn without shell, no maxBuffer cap — the previous
+  // execAsync("git diff HEAD") silently returned [] on diffs over 1MB
+  // (ENOBUFS), which is exactly the "big rewrite" case this detector exists for.
+  const result = await exec("git", ["diff", "HEAD"], { cwd });
+  if (result.code !== 0) return []; // not a git repo, or no HEAD yet
+  const diff = result.stdout;
+
   const changes: SuspiciousChange[] = [];
 
-  try {
-    // Get git diff for staged + unstaged changes
-    const { stdout: diff } = await execAsync("git diff HEAD", { cwd });
-    if (!diff.trim()) return []; // No changes
-
+  if (diff.trim()) {
     // 1. Detect test file modifications
     const testFileChanges = detectTestFileChanges(diff);
     changes.push(...testFileChanges);
@@ -39,10 +39,35 @@ export async function detectSuspiciousChanges(
     // 4. Detect removed test cases (it('...') or test('...') deletions)
     const removedTests = detectRemovedTests(diff);
     changes.push(...removedTests);
-  } catch (err) {
-    // Git command failed (e.g., not a git repo) - ignore
   }
 
+  // 5. Detect suspicious untracked/newly created files (e.g. creating dummy mock files or fake tests)
+  const untrackedChanges = await detectUntrackedFiles(cwd);
+  changes.push(...untrackedChanges);
+
+  return changes;
+}
+
+async function detectUntrackedFiles(cwd: string): Promise<SuspiciousChange[]> {
+  const changes: SuspiciousChange[] = [];
+  const res = await exec("git", ["status", "--porcelain"], { cwd });
+  if (res.code !== 0) return [];
+
+  const testFilePattern = /\.(test|spec)\.(ts|js|tsx|jsx)$/;
+  for (const line of res.stdout.split("\n")) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith("?? ")) {
+      const file = trimmed.slice(3).trim();
+      if (testFilePattern.test(file)) {
+        changes.push({
+          type: "test-modified",
+          file,
+          description: "New test file created by agent (verify it is not mocking around real failures)",
+          severity: "critical",
+        });
+      }
+    }
+  }
   return changes;
 }
 
@@ -146,17 +171,31 @@ function detectCommentedTests(diff: string): SuspiciousChange[] {
 function detectRemovedTests(diff: string): SuspiciousChange[] {
   const changes: SuspiciousChange[] = [];
 
-  // Look for deleted test cases (lines starting with - that contain it( or test()
-  const lines = diff.split("\n");
+  // Count deleted test cases (lines starting with - that contain it( or test()
+  // PER FILE — previously the counter reset at each file header but the report
+  // fired only once after the loop, so every file except the last was lost.
   let removedTestCount = 0;
-  let currentFile = "unknown";
+  let currentFile: string | null = null;
 
-  for (const line of lines) {
+  const flush = () => {
+    if (currentFile !== null && removedTestCount > 0) {
+      changes.push({
+        type: "test-removed",
+        file: currentFile,
+        description: `${removedTestCount} test case(s) were deleted`,
+        severity: "critical",
+      });
+    }
+  };
+
+  for (const line of diff.split("\n")) {
     // Track current file
     const fileMatch = line.match(/^diff --git a\/(.+?) b\/(.+?)$/);
     if (fileMatch) {
+      flush();
       currentFile = fileMatch[2];
-      removedTestCount = 0; // Reset counter for new file
+      removedTestCount = 0;
+      continue;
     }
 
     // Check for deleted test cases
@@ -168,15 +207,7 @@ function detectRemovedTests(diff: string): SuspiciousChange[] {
       removedTestCount++;
     }
   }
-
-  if (removedTestCount > 0) {
-    changes.push({
-      type: "test-removed",
-      file: currentFile,
-      description: `${removedTestCount} test case(s) were deleted`,
-      severity: "critical",
-    });
-  }
+  flush();
 
   return changes;
 }

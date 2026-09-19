@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { readFile } from "node:fs/promises";
 import { exec } from "../exec.js";
+import { fetchWithTimeout } from "./http.js";
 import { pathExists, type EcosystemAdapter, type Outdated } from "./types.js";
 
 const DEP_LINE = /^([A-Za-z0-9_-]+)\s*=\s*"([^"]+)"/;
@@ -36,7 +37,7 @@ async function directDeps(cwd: string): Promise<Map<string, string>> {
 
 async function latestOnCratesIo(name: string): Promise<string | null> {
   try {
-    const res = await fetch(`https://crates.io/api/v1/crates/${encodeURIComponent(name)}`, {
+    const res = await fetchWithTimeout(`https://crates.io/api/v1/crates/${encodeURIComponent(name)}`, {
       headers: { "User-Agent": "greenbump (https://github.com/shidesheng0218/greenbump)" },
     });
     if (!res.ok) return null;

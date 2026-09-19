@@ -106,10 +106,11 @@ export class CacheManager {
     if (!category) await this.init();
   }
 
-  /** Evict expired entries and enforce size cap. Call periodically. */
+  /** Evict expired entries and enforce the size cap (oldest first). */
   async prune(): Promise<number> {
     let pruned = 0;
     const now = Date.now();
+    const survivors: { fp: string; createdAt: number; size: number }[] = [];
     try {
       const categories = await readdir(this.cacheDir);
       for (const cat of categories) {
@@ -126,6 +127,9 @@ export class CacheManager {
             if (now - entry.createdAt > ttl) {
               await rm(fp, { force: true });
               pruned++;
+            } else {
+              const fs2 = await stat(fp).catch(() => null);
+              survivors.push({ fp, createdAt: entry.createdAt, size: fs2?.size ?? 0 });
             }
           } catch {
             // corrupt entry — remove it
@@ -136,6 +140,19 @@ export class CacheManager {
       }
     } catch {
       // nothing to prune
+    }
+
+    // Enforce the size cap: evict oldest entries first.
+    let total = survivors.reduce((sum, s) => sum + s.size, 0);
+    const cap = MAX_CACHE_SIZE_MB * 1024 * 1024;
+    if (total > cap) {
+      survivors.sort((a, b) => a.createdAt - b.createdAt);
+      for (const s of survivors) {
+        if (total <= cap) break;
+        await rm(s.fp, { force: true }).catch(() => {});
+        total -= s.size;
+        pruned++;
+      }
     }
     return pruned;
   }

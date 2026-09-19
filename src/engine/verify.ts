@@ -1,9 +1,6 @@
-import { exec } from "node:child_process";
-import { promisify } from "node:util";
+import { exec } from "./exec.js";
 import { join } from "node:path";
 import { pathExists } from "./ecosystems/types.js";
-
-const execAsync = promisify(exec);
 
 export interface VerificationResult {
   passed: boolean;
@@ -20,6 +17,9 @@ export interface StaticAnalysisOptions {
   /** Treat lint errors as fatal (default: false, only warns) */
   strictLint?: boolean;
 }
+
+/** Milliseconds; type/lint checks on a large project must not hang the run forever. */
+const CHECK_TIMEOUT_MS = 120_000;
 
 /**
  * Run static analysis checks (TypeScript, ESLint) on the codebase.
@@ -41,51 +41,33 @@ export async function runStaticAnalysis(
 
   // 1. TypeScript type check
   if (checkTypes && (await hasTsConfig(cwd))) {
-    try {
-      const { stdout, stderr } = await execAsync("npx tsc --noEmit", {
-        cwd,
-        timeout: 60000, // 1 minute timeout
-      });
-      results.push({
-        passed: true,
-        stage: "types",
-        output: stdout + stderr,
-      });
-    } catch (err: any) {
-      const output = err.stdout + err.stderr;
-      results.push({
-        passed: false,
-        stage: "types",
-        output,
-        warnings: parseTypeErrors(output),
-      });
-    }
+    const r = await exec("npx", ["tsc", "--noEmit"], { cwd, timeout: CHECK_TIMEOUT_MS });
+    results.push({
+      passed: r.code === 0,
+      stage: "types",
+      output: r.combined,
+      ...(r.code !== 0 ? { warnings: parseTypeErrors(r.combined) } : {}),
+    });
   }
 
   // 2. ESLint check
-  if (checkLint && (await hasEslintConfig(cwd))) {
-    try {
-      const { stdout, stderr } = await execAsync(
-        "npx eslint . --ext .ts,.tsx,.js,.jsx --format compact",
-        {
-          cwd,
-          timeout: 60000,
-        }
-      );
-      results.push({
-        passed: true,
-        stage: "lint",
-        output: stdout + stderr,
-      });
-    } catch (err: any) {
-      const output = err.stdout + err.stderr;
-      results.push({
-        passed: strictLint ? false : true, // Lint warnings don't fail by default
-        stage: "lint",
-        output,
-        warnings: parseLintWarnings(output),
-      });
-    }
+  const eslint = await detectEslintConfig(cwd);
+  if (checkLint && eslint) {
+    // ESLint 9 flat config rejects --ext (it lints configured files); only
+    // legacy eslintrc setups need the explicit extension list.
+    const args = eslint.kind === "flat"
+      ? ["eslint", ".", "--format", "compact"]
+      : ["eslint", ".", "--ext", ".ts,.tsx,.js,.jsx", "--format", "compact"];
+    const r = await exec("npx", args, { cwd, timeout: CHECK_TIMEOUT_MS });
+    const failed = r.code !== 0;
+    results.push({
+      passed: strictLint ? !failed : true, // Lint errors don't fail by default…
+      stage: "lint",
+      output: r.combined,
+      // …but the warnings must still reach the summary — previously they were
+      // computed and then silently dropped by the caller.
+      ...(failed ? { warnings: parseLintWarnings(r.combined) } : {}),
+    });
   }
 
   return results;
@@ -95,32 +77,31 @@ async function hasTsConfig(cwd: string): Promise<boolean> {
   return await pathExists(join(cwd, "tsconfig.json"));
 }
 
-async function hasEslintConfig(cwd: string): Promise<boolean> {
-  const configs = [
-    ".eslintrc.js",
-    ".eslintrc.cjs",
-    ".eslintrc.json",
-    ".eslintrc.yml",
-    ".eslintrc.yaml",
-  ];
-  for (const cfg of configs) {
-    if (await pathExists(join(cwd, cfg))) return true;
+interface EslintConfig {
+  kind: "flat" | "legacy";
+}
+
+export async function detectEslintConfig(cwd: string): Promise<EslintConfig | null> {
+  // ESLint 9+ flat config
+  for (const cfg of ["eslint.config.js", "eslint.config.mjs", "eslint.config.cjs", "eslint.config.ts"]) {
+    if (await pathExists(join(cwd, cfg))) return { kind: "flat" };
   }
-  // Check package.json for eslintConfig field
+  // Legacy eslintrc (including the extension-less variant)
+  for (const cfg of [".eslintrc", ".eslintrc.js", ".eslintrc.cjs", ".eslintrc.json", ".eslintrc.yml", ".eslintrc.yaml"]) {
+    if (await pathExists(join(cwd, cfg))) return { kind: "legacy" };
+  }
+  // package.json eslintConfig field is legacy-style config
   try {
     const pkgPath = join(cwd, "package.json");
     if (await pathExists(pkgPath)) {
-      const pkg = JSON.parse(
-        await import("node:fs/promises").then((fs) =>
-          fs.readFile(pkgPath, "utf8")
-        )
-      );
-      if (pkg.eslintConfig) return true;
+      const { readFile } = await import("node:fs/promises");
+      const pkg = JSON.parse(await readFile(pkgPath, "utf8"));
+      if (pkg.eslintConfig) return { kind: "legacy" };
     }
   } catch {
     // Ignore
   }
-  return false;
+  return null;
 }
 
 function parseTypeErrors(output: string): string[] {

@@ -1,3 +1,5 @@
+import { getCache } from "./cache/manager.js";
+
 const FETCH_TIMEOUT_MS = 8_000;
 const MAX_CHANGELOG_CHARS = 6_000;
 
@@ -51,14 +53,39 @@ async function githubRelease(slug: string, version: string): Promise<string | nu
  * upgraded to, to give the fix agent real migration guidance instead of
  * making it guess from the error alone. Never throws — returns null on any
  * failure (offline, rate-limited, no GitHub repo, etc).
+ *
+ * Results are cached per (package, from, to) in the local disk cache —
+ * changelogs are immutable, and the anonymous GitHub API rate limit
+ * (60 req/h) is easy to hit during batch upgrades. Pass `cache: false`
+ * (--no-cache) to bypass.
  */
-export async function fetchChangelog(pkgName: string, from: string, to: string): Promise<string | null> {
+export async function fetchChangelog(
+  pkgName: string,
+  from: string,
+  to: string,
+  opts?: { cache?: boolean },
+): Promise<string | null> {
+  const useCache = opts?.cache !== false;
   try {
+    if (useCache) {
+      const cache = getCache();
+      await cache.init();
+      const cached = await cache.getChangelog(pkgName, from, to);
+      if (cached) return cached;
+    }
+
     const slug = await githubSlug(pkgName);
     if (!slug) return null;
     const notes = await githubRelease(slug, to);
     if (!notes) return null;
-    return truncate(notes);
+    const truncated = truncate(notes);
+
+    if (useCache) {
+      const cache = getCache();
+      await cache.init();
+      await cache.setChangelog(pkgName, from, to, truncated).catch(() => {});
+    }
+    return truncated;
   } catch {
     return null;
   }

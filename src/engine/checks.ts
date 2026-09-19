@@ -1,6 +1,6 @@
 import { exec } from "./exec.js";
 import { getAdapter, type PackageManager } from "./pm.js";
-import type { CheckCommand } from "./ecosystems/index.js";
+import type { CheckCommand, CheckCommands } from "./ecosystems/index.js";
 
 export interface CheckResult {
   ok: boolean;
@@ -30,6 +30,20 @@ function parseOverride(raw: string): CheckCommand {
   return { cmd, args };
 }
 
+/** Resolve the effective build/test commands: explicit overrides win, else adapter defaults. */
+export async function resolveCheckCommands(
+  pm: PackageManager,
+  cwd: string,
+  overrides: CheckOverrides = {},
+): Promise<CheckCommands> {
+  const adapter = getAdapter(pm);
+  const defaults = await adapter.defaultCheckCommands(cwd);
+  return {
+    build: overrides.buildCmd ? parseOverride(overrides.buildCmd) : defaults.build,
+    test: overrides.testCmd ? parseOverride(overrides.testCmd) : defaults.test,
+  };
+}
+
 /**
  * Run the project's build then test command, whichever exist. Stops at the
  * first failure and returns its output so the agent has something concrete
@@ -41,10 +55,7 @@ export async function runChecks(
   cwd: string,
   overrides: CheckOverrides = {},
 ): Promise<CheckResult> {
-  const adapter = getAdapter(pm);
-  const defaults = await adapter.defaultCheckCommands(cwd);
-  const build = overrides.buildCmd ? parseOverride(overrides.buildCmd) : defaults.build;
-  const test = overrides.testCmd ? parseOverride(overrides.testCmd) : defaults.test;
+  const { build, test } = await resolveCheckCommands(pm, cwd, overrides);
 
   if (!build && !test) {
     return { ok: true, output: "", unverifiable: true };

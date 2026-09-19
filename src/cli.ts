@@ -58,6 +58,7 @@ program
   .option("--cache-stats", "show cache statistics and exit")
   .option("--cache-clear [category]", "clear the cache (changelogs, llm-fixes, patterns) and exit")
   .option("--no-ast-analysis", "disable post-fix API surface analysis")
+  .option("--worktree", "run upgrade in an isolated temporary git worktree to keep the primary directory clean")
   .option("--stats [days]", "show usage/cost-savings report for the last N days (default 30) and exit")
   .option("--json", "with --stats, print the raw JSON summary instead of the formatted report")
   .action(async (deps, opts) => {
@@ -163,6 +164,16 @@ program
     };
     const cwd = opts.cwd ? resolve(opts.cwd) : process.cwd();
 
+    // Best-effort cache maintenance (expire TTL'd entries, enforce size cap).
+    // Never blocks or fails the run.
+    if (opts.cache !== false) {
+      const cache = getCache();
+      cache
+        .init()
+        .then(() => cache.prune())
+        .catch(() => {});
+    }
+
     // Interactive mode: wire up the readline-based confirmation handler.
     let interactive: ReturnType<typeof createInteractiveHandler> | undefined;
     if (opts.interactive) {
@@ -192,6 +203,7 @@ program
       interactive: opts.interactive,
       onFixSuggestion: interactive?.handler,
       astAnalysis: opts.astAnalysis !== false,
+      worktree: opts.worktree,
     };
 
     const isBatch = opts.all || deps.length > 1;

@@ -22,7 +22,7 @@
   "homepage": "https://github.com/shidesheng0218/greenbump#readme",
   "scripts": {
     "build": "tsc",
-    "build:action": "npm run build && esbuild dist/action/main.js --bundle --platform=node --target=node20 --format=cjs --outfile=action-dist/index.cjs",
+    "build:action": "npm run build && esbuild dist/action/main.js --bundle --platform=node --target=node24 --format=cjs --outfile=action-dist/index.cjs",
     "dev": "tsx src/cli.ts",
     "test": "npm run build && cd dist && node --test",
     "prepublishOnly": "npm run build"
@@ -42,13 +42,11 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.68.0",
     "commander": "^14.0.0",
-    "madge": "^8.0.0",
     "openai": "^4.77.0",
     "picocolors": "^1.1.1",
     "typescript": "^5.7.0"
   },
   "devDependencies": {
-    "@types/madge": "^5.0.3",
     "@types/node": "^22.10.0",
     "esbuild": "^0.24.0",
     "glob": "^13.0.6",

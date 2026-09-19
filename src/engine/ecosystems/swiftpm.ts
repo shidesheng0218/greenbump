@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
 import { exec } from "../exec.js";
 import { pathExists, type EcosystemAdapter, type Outdated } from "./types.js";
+import { fetchWithTimeout } from "./http.js";
 
 // Matches: .package(url: "https://github.com/org/repo", from: "1.2.3")
 const PKG_LINE = /\.package\(\s*url:\s*"([^"]+)"\s*,\s*from:\s*"([^"]+)"\s*\)/g;
@@ -93,7 +94,7 @@ async function latestGitHubTag(repoUrl: string): Promise<string | null> {
   const m = /github\.com\/([^/]+)\/([^/.]+)/.exec(repoUrl);
   if (!m) return null;
   try {
-    const res = await fetch(`https://api.github.com/repos/${m[1]}/${m[2]}/tags`, {
+    const res = await fetchWithTimeout(`https://api.github.com/repos/${m[1]}/${m[2]}/tags`, {
       headers: { "User-Agent": "greenbump" },
     });
     if (!res.ok) return null;

@@ -3,10 +3,13 @@ import { runChecks, type CheckOverrides } from "./checks.js";
 import { upgradeDependency } from "./upgrade.js";
 import { detectPackageManager } from "./pm.js";
 import { fetchChangelog } from "./changelog.js";
-import { isGitRepo, isTreeClean, currentBranch, createBranch, commitAll, diffStat, fullDiff, checkout } from "./git.js";
+import { isGitRepo, isTreeClean, currentBranch, createBranch, commitAll, diffStat, fullDiff, checkout, resetHard } from "./git.js";
 import { runFixLoop, type FixDep } from "../agent/fixer.js";
 import { createProvider } from "../agent/factory.js";
 import { recordRun, type RunRecord } from "./stats/recorder.js";
+import { recordLlmCall, type LlmCallSink } from "../agent/calllog.js";
+import { runStaticAnalysis } from "./verify.js";
+import { detectSuspiciousChanges } from "./change-detector.js";
 import {
   detectOutdatedAll,
   resolveWorkspaceTarget,
@@ -43,9 +46,19 @@ export interface BatchRunSummary {
   results: BatchItemResult[];
 }
 
-/** `git checkout` back to the base ref, ignoring errors (best-effort cleanup between batch targets). */
-async function checkoutBack(cwd: string, base: string): Promise<void> {
-  await checkout(cwd, base);
+/**
+ * Return to the base ref between batch targets. A failed target can leave a
+ * dirty tree on the greenbump branch (partial upgrade + uncommitted agent
+ * edits), so reset first — otherwise the checkout fails and the NEXT target
+ * would silently run on the wrong branch.
+ */
+async function checkoutBack(cwd: string, base: string, log: (m: string) => void): Promise<void> {
+  try {
+    await resetHard(cwd);
+    await checkout(cwd, base);
+  } catch (err) {
+    log(`warning: failed to return to ${base} between targets (${(err as Error).message})`);
+  }
 }
 
 function resolveCwd(cwd: string, workspacePath: string | undefined): string {
@@ -80,7 +93,7 @@ export async function runBatch(opts: BatchRunOptions): Promise<BatchRunSummary> 
       if (opts.failFast) throw err;
       results.push({ dep: opts.group, error: (err as Error).message, fatal: true });
     }
-    if (baseBranch) await checkoutBack(cwd, baseBranch);
+    if (baseBranch) await checkoutBack(cwd, baseBranch, opts.onLog ?? (() => {}));
     return { results };
   }
 
@@ -97,7 +110,7 @@ export async function runBatch(opts: BatchRunOptions): Promise<BatchRunSummary> 
       if (opts.failFast) throw err;
       results.push({ dep: target.dep, error: (err as Error).message, fatal: true });
     }
-    if (baseBranch) await checkoutBack(cwd, baseBranch);
+    if (baseBranch) await checkoutBack(cwd, baseBranch, opts.onLog ?? (() => {}));
   }
 
   return { results };
@@ -141,7 +154,6 @@ async function runGrouped(
     if (!(await isTreeClean(cwd))) {
       throw new RunError("Working tree is dirty. Commit or stash your changes first (or pass --no-git).");
     }
-    await currentBranch(cwd);
     branch = `greenbump/group-${groupName.replace(/[^a-zA-Z0-9._-]/g, "-")}`;
     await createBranch(cwd, branch);
     log(`created branch ${branch}`);
@@ -207,7 +219,7 @@ async function runGrouped(
   summary.neededFix = true;
   const deps: FixDep[] = [];
   for (const target of resolvedTargets) {
-    const changelog = await fetchChangelog(target.dep, target.from, target.to);
+    const changelog = await fetchChangelog(target.dep, target.from, target.to, { cache: !opts.noCache });
     deps.push({ dep: target.dep, from: target.from, to: target.to, changelog });
   }
 
@@ -217,6 +229,7 @@ async function runGrouped(
     baseURL: opts.baseURL,
     apiKey: opts.apiKey,
   });
+  const llmCallSink: LlmCallSink = (rec) => recordLlmCall({ ...rec, ts: Date.now() }, log);
   log(`group upgrade broke ${post.failedStep} — starting fix loop via ${provider.name} (${provider.model})`);
   const fix = await runFixLoop({
     cwd: groupCwd,
@@ -231,6 +244,10 @@ async function runGrouped(
     deps,
     failureOutput: post.output,
     onLog: log,
+    noFreeTiers: opts.noFreeTiers,
+    noCache: opts.noCache,
+    onFixSuggestion: opts.interactive ? opts.onFixSuggestion : undefined,
+    onLlmCall: llmCallSink,
   });
   summary.fixed = fix.fixed;
   summary.rounds = fix.rounds;
@@ -241,13 +258,29 @@ async function runGrouped(
   summary.testFilesTouched = fix.editedFiles.filter((f) =>
     /(^|\/)(test|tests|__tests__|spec)(\/|\.)|\.(test|spec)\./i.test(f),
   );
+
+  // Same verification net as the single-dep path: static analysis + cheat
+  // detection. Grouped runs used to skip this entirely.
+  const staticResults = await runStaticAnalysis(groupCwd, { strictLint: false });
+  const typesFailed = staticResults.some((r) => r.stage === "types" && !r.passed);
+  const analysisWarnings = staticResults.flatMap((r) => r.warnings || []);
+  if (typesFailed) summary.needsReview = true;
+  if (analysisWarnings.length > 0) summary.staticAnalysisWarnings = analysisWarnings;
+
+  const suspicious = await detectSuspiciousChanges(groupCwd);
+  const critical = suspicious.filter((c) => c.severity === "critical");
+  if (critical.length > 0) {
+    summary.needsReview = true;
+    summary.suspiciousChanges = suspicious.map((c) => `${c.type}: ${c.file} - ${c.description}`);
+  }
+
   summary.needsReview = computeNeedsReview({
     unverifiable: false,
     neededFix: true,
     fixed: fix.fixed,
     testFilesTouched: summary.testFilesTouched,
     budgetExceeded: fix.budgetExceeded,
-  });
+  }) || summary.needsReview; // preserve flags set by static analysis / suspicious changes
 
   await maybeCommitGroup(cwd, summary, depsSummary, fix.fixed);
   summary.durationMs = Date.now() - startedAt;
@@ -282,7 +315,17 @@ async function maybeCommitGroup(
 ): Promise<void> {
   if (!summary.branch || !shouldCommit) return;
   const note = summary.neededFix ? ` and fix ${summary.editedFiles.length} file(s)` : "";
-  await commitAll(cwd, `chore(deps): bump ${depsSummary}${note}\n\nAutomated by greenbump.`);
+  try {
+    await commitAll(cwd, `chore(deps): bump ${depsSummary}${note}\n\nAutomated by greenbump.`);
+  } catch (err) {
+    summary.committed = false;
+    summary.needsReview = true;
+    summary.staticAnalysisWarnings = [
+      ...(summary.staticAnalysisWarnings ?? []),
+      `git commit failed: ${(err as Error).message}`,
+    ];
+    return;
+  }
   summary.committed = true;
   summary.diffStat = await diffStat(cwd, "HEAD~1");
   if (summary.neededFix) summary.fullDiff = await fullDiff(cwd, "HEAD~1");

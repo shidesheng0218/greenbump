@@ -75,13 +75,25 @@ async function main(): Promise<void> {
     return;
   }
 
-  // configure a bot identity and push the branch
+  // configure a bot identity and push the branch.
+  // The token goes in an auth header, NOT the remote URL: git's error output
+  // echoes the remote URL on failure, and a URL-embedded token would land in
+  // the workflow log. (It still transits argv on the runner — acceptable on
+  // ephemeral single-tenant runners; the log leak was the real risk.)
   await exec("git", ["config", "user.name", "greenbump[bot]"], { cwd });
   await exec("git", ["config", "user.email", "greenbump@users.noreply.github.com"], { cwd });
-  const remote = `https://x-access-token:${token}@github.com/${repoSlug}.git`;
-  const push = await exec("git", ["push", "--force", remote, `HEAD:${summary.branch}`], { cwd });
+  const remote = `https://github.com/${repoSlug}.git`;
+  const push = await exec(
+    "git",
+    [
+      "-c", `http.https://github.com/.extraheader=AUTHORIZATION: bearer ${token}`,
+      "push", "--force", remote, `HEAD:${summary.branch}`,
+    ],
+    { cwd },
+  );
   if (push.code !== 0) {
-    setFailed(`failed to push branch:\n${push.combined}`);
+    // Belt and braces: redact the token even though it should never appear now.
+    setFailed(`failed to push branch:\n${push.combined.split(token).join("***")}`);
     return;
   }
 
@@ -105,6 +117,13 @@ async function main(): Promise<void> {
   });
 
   setOutput("pr-url", url ?? "");
+  if (!url) {
+    // The branch IS pushed but the PR could not be created — saying
+    // "pr-opened" here would be lying about what happened.
+    setOutput("status", "pr-failed");
+    setFailed("branch pushed, but creating the pull request failed (see warnings above).");
+    return;
+  }
   setOutput("status", stillBroken ? "unfixed" : summary.needsReview ? "pr-needs-review" : "pr-opened");
   info(draft ? "opened a draft PR for review." : "opened a PR — build + tests green.");
 }

@@ -1,4 +1,8 @@
 import { createInterface } from "node:readline";
+import { writeFileSync, readFileSync, unlinkSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { spawnSync } from "node:child_process";
 import pc from "picocolors";
 import type { FixSuggestion, FixDecision } from "../agent/fixer.js";
 
@@ -74,18 +78,56 @@ export function createInteractiveHandler(opts?: InteractiveOptions) {
           return { action: "accept" };
         case "e":
         case "edit": {
-          process.stderr.write(pc.dim("Enter new content. End with a single '.' on its own line:\n"));
-          const lines: string[] = [];
-          for (;;) {
-            const line = await ask("");
-            if (line === ".") break;
-            lines.push(line);
+          const editor =
+            process.env.VISUAL ||
+            process.env.EDITOR ||
+            (process.platform === "win32" ? "notepad" : "vim");
+          const ext = suggestion.path.includes(".")
+            ? "." + suggestion.path.split(".").pop()
+            : ".txt";
+          const tempFile = join(
+            tmpdir(),
+            `greenbump-edit-${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`,
+          );
+
+          try {
+            // Write initial suggestion diff/content to temp file
+            writeFileSync(tempFile, suggestion.diff + "\n", "utf8");
+            process.stderr.write(pc.dim(`Opening ${editor} for manual edit...\n`));
+
+            // Pause readline while editor is active
+            rl.pause();
+            const child = spawnSync(editor, [tempFile], {
+              stdio: "inherit",
+              shell: true,
+            });
+            rl.resume();
+
+            if (child.error) {
+              process.stderr.write(
+                pc.yellow(`Failed to launch editor (${child.error.message}), falling back to line input.\n`),
+              );
+              // Fallback to manual input
+              process.stderr.write(pc.dim("Enter new content. End with a single '.' on its own line:\n"));
+              const lines: string[] = [];
+              for (;;) {
+                const line = await ask("");
+                if (line === ".") break;
+                lines.push(line);
+              }
+              if (lines.length === 0) continue;
+              return { action: "edit", content: lines.join("\n") + "\n" };
+            }
+
+            const editedContent = readFileSync(tempFile, "utf8");
+            return { action: "edit", content: editedContent };
+          } finally {
+            try {
+              unlinkSync(tempFile);
+            } catch {
+              // ignore cleanup error
+            }
           }
-          if (lines.length === 0) {
-            process.stderr.write(pc.yellow("empty input — edit cancelled, asking again\n"));
-            continue;
-          }
-          return { action: "edit", content: lines.join("\n") + "\n" };
         }
         default:
           process.stderr.write(pc.dim("unknown choice — y/n/e/s/a\n"));

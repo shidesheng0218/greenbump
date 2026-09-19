@@ -15030,7 +15030,7 @@ ${lanes.join("\n")}
             writeOutputIsTTY() {
               return process.stdout.isTTY;
             },
-            readFile: readFile18,
+            readFile: readFile17,
             writeFile: writeFile22,
             watchFile: watchFile2,
             watchDirectory,
@@ -15071,9 +15071,9 @@ ${lanes.join("\n")}
               return process.memoryUsage().heapUsed;
             },
             getFileSize(path2) {
-              const stat5 = statSync2(path2);
-              if (stat5 == null ? void 0 : stat5.isFile()) {
-                return stat5.size;
+              const stat6 = statSync2(path2);
+              if (stat6 == null ? void 0 : stat6.isFile()) {
+                return stat6.size;
               }
               return 0;
             },
@@ -15236,7 +15236,7 @@ ${lanes.join("\n")}
               callback
             );
           }
-          function readFile18(fileName, _encoding) {
+          function readFile17(fileName, _encoding) {
             let buffer;
             try {
               buffer = _fs.readFileSync(fileName);
@@ -15291,19 +15291,19 @@ ${lanes.join("\n")}
                 if (entry === "." || entry === "..") {
                   continue;
                 }
-                let stat5;
+                let stat6;
                 if (typeof dirent === "string" || dirent.isSymbolicLink()) {
                   const name = combinePaths(path2, entry);
-                  stat5 = statSync2(name);
-                  if (!stat5) {
+                  stat6 = statSync2(name);
+                  if (!stat6) {
                     continue;
                   }
                 } else {
-                  stat5 = dirent;
+                  stat6 = dirent;
                 }
-                if (stat5.isFile()) {
+                if (stat6.isFile()) {
                   files.push(entry);
-                } else if (stat5.isDirectory()) {
+                } else if (stat6.isDirectory()) {
                   directories.push(entry);
                 }
               }
@@ -15318,15 +15318,15 @@ ${lanes.join("\n")}
             return matchFiles(path2, extensions, excludes, includes, useCaseSensitiveFileNames2, process.cwd(), depth, getAccessibleFileSystemEntries, realpath);
           }
           function fileSystemEntryExists(path2, entryKind) {
-            const stat5 = statSync2(path2);
-            if (!stat5) {
+            const stat6 = statSync2(path2);
+            if (!stat6) {
               return false;
             }
             switch (entryKind) {
               case 0:
-                return stat5.isFile();
+                return stat6.isFile();
               case 1:
-                return stat5.isDirectory();
+                return stat6.isDirectory();
               default:
                 return false;
             }
@@ -51792,7 +51792,7 @@ ${lanes.join("\n")}
         const possibleOption = getSpellingSuggestion(unknownOption, diagnostics.optionDeclarations, getOptionName);
         return possibleOption ? createDiagnosticForNodeInSourceFileOrCompilerDiagnostic(sourceFile, node, diagnostics.unknownDidYouMeanDiagnostic, unknownOptionErrorText || unknownOption, possibleOption.name) : createDiagnosticForNodeInSourceFileOrCompilerDiagnostic(sourceFile, node, diagnostics.unknownOptionDiagnostic, unknownOptionErrorText || unknownOption);
       }
-      function parseCommandLineWorker(diagnostics, commandLine, readFile18) {
+      function parseCommandLineWorker(diagnostics, commandLine, readFile17) {
         const options = {};
         let watchOptions;
         const fileNames = [];
@@ -51840,7 +51840,7 @@ ${lanes.join("\n")}
           }
         }
         function parseResponseFile(fileName) {
-          const text = tryReadFile(fileName, readFile18 || ((fileName2) => sys.readFile(fileName2)));
+          const text = tryReadFile(fileName, readFile17 || ((fileName2) => sys.readFile(fileName2)));
           if (!isString(text)) {
             errors.push(text);
             return;
@@ -51943,8 +51943,8 @@ ${lanes.join("\n")}
         unknownDidYouMeanDiagnostic: Diagnostics.Unknown_compiler_option_0_Did_you_mean_1,
         optionTypeMismatchDiagnostic: Diagnostics.Compiler_option_0_expects_an_argument
       };
-      function parseCommandLine(commandLine, readFile18) {
-        return parseCommandLineWorker(compilerOptionsDidYouMeanDiagnostics, commandLine, readFile18);
+      function parseCommandLine(commandLine, readFile17) {
+        return parseCommandLineWorker(compilerOptionsDidYouMeanDiagnostics, commandLine, readFile17);
       }
       function getOptionFromName(optionName, allowShort) {
         return getOptionDeclarationFromName(getOptionsNameMap, optionName, allowShort);
@@ -52026,8 +52026,8 @@ ${lanes.join("\n")}
           watchOptionsToExtend
         );
       }
-      function readConfigFile(fileName, readFile18) {
-        const textOrDiagnostic = tryReadFile(fileName, readFile18);
+      function readConfigFile(fileName, readFile17) {
+        const textOrDiagnostic = tryReadFile(fileName, readFile17);
         return isString(textOrDiagnostic) ? parseConfigFileTextToJson(fileName, textOrDiagnostic) : { config: {}, error: textOrDiagnostic };
       }
       function parseConfigFileTextToJson(fileName, jsonText) {
@@ -52042,14 +52042,14 @@ ${lanes.join("\n")}
           error: jsonSourceFile.parseDiagnostics.length ? jsonSourceFile.parseDiagnostics[0] : void 0
         };
       }
-      function readJsonConfigFile(fileName, readFile18) {
-        const textOrDiagnostic = tryReadFile(fileName, readFile18);
+      function readJsonConfigFile(fileName, readFile17) {
+        const textOrDiagnostic = tryReadFile(fileName, readFile17);
         return isString(textOrDiagnostic) ? parseJsonText(fileName, textOrDiagnostic) : { fileName, parseDiagnostics: [textOrDiagnostic] };
       }
-      function tryReadFile(fileName, readFile18) {
+      function tryReadFile(fileName, readFile17) {
         let text;
         try {
-          text = readFile18(fileName);
+          text = readFile17(fileName);
         } catch (e2) {
           return createCompilerDiagnostic(Diagnostics.Cannot_read_file_0_Colon_1, fileName, e2.message);
         }
@@ -141707,12 +141707,12 @@ ${lanes.join("\n")}
       function createCompilerHost(options, setParentNodes) {
         return createCompilerHostWorker(options, setParentNodes);
       }
-      function createGetSourceFile(readFile18, setParentNodes) {
+      function createGetSourceFile(readFile17, setParentNodes) {
         return (fileName, languageVersionOrOptions, onError) => {
           let text;
           try {
             mark("beforeIORead");
-            text = readFile18(fileName);
+            text = readFile17(fileName);
             mark("afterIORead");
             measure("I/O Read", "beforeIORead", "afterIORead");
           } catch (e2) {
@@ -142616,7 +142616,7 @@ ${lanes.join("\n")}
           getRedirectFromOutput,
           forEachResolvedProjectReference: forEachResolvedProjectReference2
         });
-        const readFile18 = host.readFile.bind(host);
+        const readFile17 = host.readFile.bind(host);
         (_e2 = tracing) == null ? void 0 : _e2.push(tracing.Phase.Program, "shouldProgramCreateNewSourceFiles", { hasOldProgram: !!oldProgram });
         const shouldCreateNewSourceFile = shouldProgramCreateNewSourceFiles(oldProgram, options);
         (_f = tracing) == null ? void 0 : _f.pop();
@@ -142842,7 +142842,7 @@ ${lanes.join("\n")}
           shouldTransformImportCall,
           emitBuildInfo,
           fileExists,
-          readFile: readFile18,
+          readFile: readFile17,
           directoryExists,
           getSymlinkCache,
           realpath: (_o = host.realpath) == null ? void 0 : _o.bind(host),
@@ -217178,30 +217178,52 @@ var import_node_path = require("node:path");
 
 // dist/engine/exec.js
 var import_node_child_process = require("node:child_process");
+var MAX_CAPTURE_CHARS = 1e6;
+var TRUNCATION_MARKER = "[greenbump] output truncated (kept the last 1MB)\n";
+function cappedAppend(buf, chunk) {
+  const next = buf + chunk;
+  if (next.length <= MAX_CAPTURE_CHARS)
+    return next;
+  const bodyBudget = MAX_CAPTURE_CHARS - TRUNCATION_MARKER.length;
+  return TRUNCATION_MARKER + next.slice(next.length - bodyBudget);
+}
 function exec(cmd, args, opts) {
   return new Promise((resolve2) => {
+    const isWindows = process.platform === "win32";
     const child = (0, import_node_child_process.spawn)(cmd, args, {
       cwd: opts.cwd,
       env: opts.env ?? process.env,
-      shell: false
+      shell: false,
+      detached: !isWindows
     });
     let stdout = "";
     let stderr = "";
     let combined = "";
-    child.stdout.on("data", (d2) => {
+    child.stdout?.on("data", (d2) => {
       const s2 = d2.toString();
-      stdout += s2;
-      combined += s2;
+      stdout = cappedAppend(stdout, s2);
+      combined = cappedAppend(combined, s2);
     });
-    child.stderr.on("data", (d2) => {
+    child.stderr?.on("data", (d2) => {
       const s2 = d2.toString();
-      stderr += s2;
-      combined += s2;
+      stderr = cappedAppend(stderr, s2);
+      combined = cappedAppend(combined, s2);
     });
     let timer;
     if (opts.timeout) {
       timer = setTimeout(() => {
-        child.kill("SIGKILL");
+        if (isWindows && child.pid) {
+          (0, import_node_child_process.spawn)("taskkill", ["/pid", String(child.pid), "/T", "/F"]).on("error", () => {
+          });
+        } else if (child.pid) {
+          try {
+            process.kill(-child.pid, "SIGKILL");
+          } catch {
+            child.kill("SIGKILL");
+          }
+        } else {
+          child.kill("SIGKILL");
+        }
         combined += `
 [greenbump] command timed out after ${opts.timeout}ms
 `;
@@ -217244,8 +217266,8 @@ async function pathExists(p2) {
 // dist/engine/ecosystems/npm.js
 async function readScripts(cwd) {
   try {
-    const { readFile: readFile18 } = await import("node:fs/promises");
-    const raw = await readFile18((0, import_node_path.join)(cwd, "package.json"), "utf8");
+    const { readFile: readFile17 } = await import("node:fs/promises");
+    const raw = await readFile17((0, import_node_path.join)(cwd, "package.json"), "utf8");
     const pkg = JSON.parse(raw);
     return { build: pkg.scripts?.build, test: pkg.scripts?.test };
   } catch {
@@ -217287,8 +217309,8 @@ var npmAdapter = {
 var import_node_path2 = require("node:path");
 async function readScripts2(cwd) {
   try {
-    const { readFile: readFile18 } = await import("node:fs/promises");
-    const raw = await readFile18((0, import_node_path2.join)(cwd, "package.json"), "utf8");
+    const { readFile: readFile17 } = await import("node:fs/promises");
+    const raw = await readFile17((0, import_node_path2.join)(cwd, "package.json"), "utf8");
     const pkg = JSON.parse(raw);
     return { build: pkg.scripts?.build, test: pkg.scripts?.test };
   } catch {
@@ -217339,8 +217361,8 @@ var yarnAdapter = {
 var import_node_path3 = require("node:path");
 async function readScripts3(cwd) {
   try {
-    const { readFile: readFile18 } = await import("node:fs/promises");
-    const raw = await readFile18((0, import_node_path3.join)(cwd, "package.json"), "utf8");
+    const { readFile: readFile17 } = await import("node:fs/promises");
+    const raw = await readFile17((0, import_node_path3.join)(cwd, "package.json"), "utf8");
     const pkg = JSON.parse(raw);
     return { build: pkg.scripts?.build, test: pkg.scripts?.test };
   } catch {
@@ -217559,6 +217581,20 @@ var pipenvAdapter = {
 // dist/engine/ecosystems/cargo.js
 var import_node_path9 = require("node:path");
 var import_promises3 = require("node:fs/promises");
+
+// dist/engine/ecosystems/http.js
+var DEFAULT_TIMEOUT_MS = 1e4;
+async function fetchWithTimeout(url, init2, timeoutMs = DEFAULT_TIMEOUT_MS) {
+  const ctrl = new AbortController();
+  const t2 = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init2, signal: ctrl.signal });
+  } finally {
+    clearTimeout(t2);
+  }
+}
+
+// dist/engine/ecosystems/cargo.js
 var DEP_LINE = /^([A-Za-z0-9_-]+)\s*=\s*"([^"]+)"/;
 function parseCargoToml(raw) {
   const deps = /* @__PURE__ */ new Map();
@@ -217591,7 +217627,7 @@ async function directDeps(cwd) {
 }
 async function latestOnCratesIo(name) {
   try {
-    const res = await fetch(`https://crates.io/api/v1/crates/${encodeURIComponent(name)}`, {
+    const res = await fetchWithTimeout(`https://crates.io/api/v1/crates/${encodeURIComponent(name)}`, {
       headers: { "User-Agent": "greenbump (https://github.com/shidesheng0218/greenbump)" }
     });
     if (!res.ok)
@@ -217733,10 +217769,10 @@ var bundlerAdapter = {
   }
 };
 async function pinInGemfile(cwd, name, version, fallback) {
-  const { readFile: readFile18, writeFile: writeFile12 } = await import("node:fs/promises");
+  const { readFile: readFile17, writeFile: writeFile12 } = await import("node:fs/promises");
   try {
     const path2 = (0, import_node_path11.join)(cwd, "Gemfile");
-    const raw = await readFile18(path2, "utf8");
+    const raw = await readFile17(path2, "utf8");
     const re2 = new RegExp(`^(\\s*gem\\s+["']${name}["'])(.*)$`, "m");
     if (re2.test(raw)) {
       const next = raw.replace(re2, `$1, "= ${version}"`);
@@ -217799,7 +217835,7 @@ async function latestOnMavenCentral(groupArtifact) {
   const [g2, a2] = groupArtifact.split(":");
   try {
     const url = `https://search.maven.org/solrsearch/select?q=g:${encodeURIComponent(g2)}+AND+a:${encodeURIComponent(a2)}&core=gav&rows=1&sort=v+desc&wt=json`;
-    const res = await fetch(url);
+    const res = await fetchWithTimeout(url);
     if (!res.ok)
       return null;
     const data = await res.json();
@@ -217879,7 +217915,7 @@ async function directDeps3(cwd, file) {
 async function latestOnMavenCentral2(group, artifact) {
   try {
     const url = `https://search.maven.org/solrsearch/select?q=g:${encodeURIComponent(group)}+AND+a:${encodeURIComponent(artifact)}&core=gav&rows=1&sort=v+desc&wt=json`;
-    const res = await fetch(url);
+    const res = await fetchWithTimeout(url);
     if (!res.ok)
       return null;
     const data = await res.json();
@@ -218019,9 +218055,9 @@ var mixAdapter = {
     return parseMixOutdated(r2.stdout);
   },
   async install(cwd, name, version) {
-    const { readFile: readFile18, writeFile: writeFile12 } = await import("node:fs/promises");
+    const { readFile: readFile17, writeFile: writeFile12 } = await import("node:fs/promises");
     const path2 = (0, import_node_path15.join)(cwd, "mix.exs");
-    const raw = await readFile18(path2, "utf8");
+    const raw = await readFile17(path2, "utf8");
     const re2 = new RegExp(`(\\{:${name},\\s*)"[^"]+"`);
     if (!re2.test(raw)) {
       return { code: 1, stdout: "", stderr: `could not find :${name} in mix.exs`, combined: `could not find :${name} in mix.exs` };
@@ -218142,7 +218178,7 @@ async function latestGitHubTag(repoUrl) {
   if (!m2)
     return null;
   try {
-    const res = await fetch(`https://api.github.com/repos/${m2[1]}/${m2[2]}/tags`, {
+    const res = await fetchWithTimeout(`https://api.github.com/repos/${m2[1]}/${m2[2]}/tags`, {
       headers: { "User-Agent": "greenbump" }
     });
     if (!res.ok)
@@ -218244,7 +218280,7 @@ function compareSemver(a2, b2) {
 }
 async function latestOnConanCenter(name) {
   try {
-    const res = await fetch(`https://center2.conan.io/v1/conans/search?q=${encodeURIComponent(name)}`);
+    const res = await fetchWithTimeout(`https://center2.conan.io/v1/conans/search?q=${encodeURIComponent(name)}`);
     if (!res.ok)
       return null;
     const data = await res.json();
@@ -218300,7 +218336,7 @@ var import_node_path20 = require("node:path");
 var import_promises10 = require("node:fs/promises");
 async function latestOnElmPackages(name) {
   try {
-    const res = await fetch(`https://package.elm-lang.org/packages/${name}/releases.json`);
+    const res = await fetchWithTimeout(`https://package.elm-lang.org/packages/${name}/releases.json`);
     if (!res.ok)
       return null;
     const data = await res.json();
@@ -218432,11 +218468,16 @@ function parseOverride(raw) {
   const [cmd, ...args] = raw.split(/\s+/).filter(Boolean);
   return { cmd, args };
 }
-async function runChecks(pm, cwd, overrides = {}) {
+async function resolveCheckCommands(pm, cwd, overrides = {}) {
   const adapter = getAdapter(pm);
   const defaults2 = await adapter.defaultCheckCommands(cwd);
-  const build = overrides.buildCmd ? parseOverride(overrides.buildCmd) : defaults2.build;
-  const test = overrides.testCmd ? parseOverride(overrides.testCmd) : defaults2.test;
+  return {
+    build: overrides.buildCmd ? parseOverride(overrides.buildCmd) : defaults2.build,
+    test: overrides.testCmd ? parseOverride(overrides.testCmd) : defaults2.test
+  };
+}
+async function runChecks(pm, cwd, overrides = {}) {
+  const { build, test } = await resolveCheckCommands(pm, cwd, overrides);
   if (!build && !test) {
     return { ok: true, output: "", unverifiable: true };
   }
@@ -218461,107 +218502,13 @@ async function upgradeDependency(pm, cwd, name, version) {
   return { ok: r2.code === 0, output: r2.combined };
 }
 
-// dist/engine/changelog.js
-var FETCH_TIMEOUT_MS = 8e3;
-var MAX_CHANGELOG_CHARS = 6e3;
-async function timedFetch(url, headers) {
-  const ctrl = new AbortController();
-  const t2 = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
-  try {
-    const res = await fetch(url, { signal: ctrl.signal, headers });
-    return res.ok ? res : null;
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(t2);
-  }
-}
-function truncate(s2) {
-  return s2.length > MAX_CHANGELOG_CHARS ? s2.slice(0, MAX_CHANGELOG_CHARS) + "\n...(truncated)" : s2;
-}
-async function githubSlug(pkgName) {
-  const res = await timedFetch(`https://registry.npmjs.org/${encodeURIComponent(pkgName)}/latest`);
-  if (!res)
-    return null;
-  const data = await res.json().catch(() => null);
-  const url = typeof data?.repository === "string" ? data.repository : data?.repository?.url;
-  if (!url)
-    return null;
-  const m2 = url.match(/github\.com[/:]([\w.-]+)\/([\w.-]+?)(\.git)?$/);
-  return m2 ? `${m2[1]}/${m2[2]}` : null;
-}
-async function githubRelease(slug, version) {
-  for (const tag of [version, `v${version}`]) {
-    const res = await timedFetch(`https://api.github.com/repos/${slug}/releases/tags/${tag}`, {
-      Accept: "application/vnd.github+json"
-    });
-    if (!res)
-      continue;
-    const data = await res.json().catch(() => null);
-    if (data?.body)
-      return `## ${data.name ?? tag}
-
-${data.body}`;
-  }
-  return null;
-}
-async function fetchChangelog(pkgName, from, to) {
-  try {
-    const slug = await githubSlug(pkgName);
-    if (!slug)
-      return null;
-    const notes = await githubRelease(slug, to);
-    if (!notes)
-      return null;
-    return truncate(notes);
-  } catch {
-    return null;
-  }
-}
-
-// dist/engine/git.js
-async function isGitRepo(cwd) {
-  const r2 = await exec("git", ["rev-parse", "--is-inside-work-tree"], { cwd });
-  return r2.code === 0 && r2.stdout.trim() === "true";
-}
-async function isTreeClean(cwd) {
-  const r2 = await exec("git", ["status", "--porcelain"], { cwd });
-  return r2.code === 0 && r2.stdout.trim() === "";
-}
-async function currentBranch(cwd) {
-  const r2 = await exec("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd });
-  return r2.stdout.trim();
-}
-async function createBranch(cwd, name) {
-  await exec("git", ["checkout", "-b", name], { cwd });
-}
-async function commitAll(cwd, message) {
-  await exec("git", ["add", "-A"], { cwd });
-  await exec("git", ["commit", "-m", message, "--no-verify"], { cwd });
-}
-async function diffStat(cwd, ref) {
-  const r2 = await exec("git", ["diff", "--stat", ref], { cwd });
-  return r2.stdout.trim();
-}
-async function fullDiff(cwd, ref) {
-  const r2 = await exec("git", ["diff", ref], { cwd });
-  return r2.stdout;
-}
-
-// dist/agent/fixer.js
-var import_promises14 = require("node:fs/promises");
-var import_node_path24 = require("node:path");
-
-// dist/engine/fixer/patterns.js
-var import_promises12 = require("node:fs/promises");
-var import_node_path22 = require("node:path");
-
 // dist/engine/cache/manager.js
 var import_promises11 = require("node:fs/promises");
 var import_node_path21 = require("node:path");
 var import_node_crypto = require("node:crypto");
 var import_node_os = require("node:os");
 var DEFAULT_TTL_MS = 30 * 24 * 60 * 60 * 1e3;
+var MAX_CACHE_SIZE_MB = 500;
 var CacheManager = class {
   cacheDir;
   ttlMs;
@@ -218629,10 +218576,11 @@ var CacheManager = class {
     if (!category)
       await this.init();
   }
-  /** Evict expired entries and enforce size cap. Call periodically. */
+  /** Evict expired entries and enforce the size cap (oldest first). */
   async prune() {
     let pruned = 0;
     const now = Date.now();
+    const survivors = [];
     try {
       const categories = await (0, import_promises11.readdir)(this.cacheDir);
       for (const cat of categories) {
@@ -218650,6 +218598,9 @@ var CacheManager = class {
             if (now - entry.createdAt > ttl) {
               await (0, import_promises11.rm)(fp, { force: true });
               pruned++;
+            } else {
+              const fs2 = await (0, import_promises11.stat)(fp).catch(() => null);
+              survivors.push({ fp, createdAt: entry.createdAt, size: fs2?.size ?? 0 });
             }
           } catch {
             await (0, import_promises11.rm)(fp, { force: true });
@@ -218658,6 +218609,19 @@ var CacheManager = class {
         }
       }
     } catch {
+    }
+    let total = survivors.reduce((sum, s2) => sum + s2.size, 0);
+    const cap = MAX_CACHE_SIZE_MB * 1024 * 1024;
+    if (total > cap) {
+      survivors.sort((a2, b2) => a2.createdAt - b2.createdAt);
+      for (const s2 of survivors) {
+        if (total <= cap)
+          break;
+        await (0, import_promises11.rm)(s2.fp, { force: true }).catch(() => {
+        });
+        total -= s2.size;
+        pruned++;
+      }
     }
     return pruned;
   }
@@ -218703,7 +218667,138 @@ function getCache() {
   return shared;
 }
 
+// dist/engine/changelog.js
+var FETCH_TIMEOUT_MS = 8e3;
+var MAX_CHANGELOG_CHARS = 6e3;
+async function timedFetch(url, headers) {
+  const ctrl = new AbortController();
+  const t2 = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { signal: ctrl.signal, headers });
+    return res.ok ? res : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(t2);
+  }
+}
+function truncate(s2) {
+  return s2.length > MAX_CHANGELOG_CHARS ? s2.slice(0, MAX_CHANGELOG_CHARS) + "\n...(truncated)" : s2;
+}
+async function githubSlug(pkgName) {
+  const res = await timedFetch(`https://registry.npmjs.org/${encodeURIComponent(pkgName)}/latest`);
+  if (!res)
+    return null;
+  const data = await res.json().catch(() => null);
+  const url = typeof data?.repository === "string" ? data.repository : data?.repository?.url;
+  if (!url)
+    return null;
+  const m2 = url.match(/github\.com[/:]([\w.-]+)\/([\w.-]+?)(\.git)?$/);
+  return m2 ? `${m2[1]}/${m2[2]}` : null;
+}
+async function githubRelease(slug, version) {
+  for (const tag of [version, `v${version}`]) {
+    const res = await timedFetch(`https://api.github.com/repos/${slug}/releases/tags/${tag}`, {
+      Accept: "application/vnd.github+json"
+    });
+    if (!res)
+      continue;
+    const data = await res.json().catch(() => null);
+    if (data?.body)
+      return `## ${data.name ?? tag}
+
+${data.body}`;
+  }
+  return null;
+}
+async function fetchChangelog(pkgName, from, to, opts) {
+  const useCache = opts?.cache !== false;
+  try {
+    if (useCache) {
+      const cache = getCache();
+      await cache.init();
+      const cached = await cache.getChangelog(pkgName, from, to);
+      if (cached)
+        return cached;
+    }
+    const slug = await githubSlug(pkgName);
+    if (!slug)
+      return null;
+    const notes = await githubRelease(slug, to);
+    if (!notes)
+      return null;
+    const truncated = truncate(notes);
+    if (useCache) {
+      const cache = getCache();
+      await cache.init();
+      await cache.setChangelog(pkgName, from, to, truncated).catch(() => {
+      });
+    }
+    return truncated;
+  } catch {
+    return null;
+  }
+}
+
+// dist/engine/git.js
+var GIT_TIMEOUT_MS = 3e4;
+function assertOk(r2, what) {
+  if (r2.code !== 0) {
+    throw new Error(`git ${what} failed (exit ${r2.code}): ${r2.stderr.trim() || "no stderr"}`);
+  }
+}
+async function isGitRepo(cwd) {
+  const r2 = await exec("git", ["rev-parse", "--is-inside-work-tree"], { cwd, timeout: GIT_TIMEOUT_MS });
+  return r2.code === 0 && r2.stdout.trim() === "true";
+}
+async function isTreeClean(cwd) {
+  const r2 = await exec("git", ["status", "--porcelain"], { cwd, timeout: GIT_TIMEOUT_MS });
+  return r2.code === 0 && r2.stdout.trim() === "";
+}
+async function currentBranch(cwd) {
+  const r2 = await exec("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd, timeout: GIT_TIMEOUT_MS });
+  return r2.stdout.trim();
+}
+async function createBranch(cwd, name) {
+  assertOk(await exec("git", ["checkout", "-b", name], { cwd, timeout: GIT_TIMEOUT_MS }), `checkout -b ${name}`);
+}
+async function addWorktree(cwd, worktreePath, branch) {
+  assertOk(await exec("git", ["worktree", "add", "-b", branch, worktreePath], { cwd, timeout: GIT_TIMEOUT_MS }), `worktree add -b ${branch}`);
+}
+async function removeWorktree(cwd, worktreePath, force = false) {
+  const args = ["worktree", "remove"];
+  if (force)
+    args.push("--force");
+  args.push(worktreePath);
+  await exec("git", args, { cwd, timeout: GIT_TIMEOUT_MS });
+  await exec("git", ["worktree", "prune"], { cwd, timeout: GIT_TIMEOUT_MS });
+}
+async function commitAll(cwd, message) {
+  assertOk(await exec("git", ["add", "-A"], { cwd, timeout: GIT_TIMEOUT_MS }), "add -A");
+  assertOk(await exec("git", ["commit", "-m", message, "--no-verify"], { cwd, timeout: GIT_TIMEOUT_MS }), "commit");
+}
+async function diffStat(cwd, ref) {
+  const r2 = await exec("git", ["diff", "--stat", ref], { cwd });
+  return r2.stdout.trim();
+}
+async function fullDiff(cwd, ref) {
+  const r2 = await exec("git", ["diff", ref], { cwd });
+  return r2.stdout;
+}
+
+// dist/engine/run.js
+var import_promises22 = require("node:fs/promises");
+var import_node_os4 = require("node:os");
+var import_node_path29 = require("node:path");
+
+// dist/agent/fixer.js
+var import_promises14 = require("node:fs/promises");
+var import_node_path24 = require("node:path");
+var import_node_crypto2 = require("node:crypto");
+
 // dist/engine/fixer/patterns.js
+var import_promises12 = require("node:fs/promises");
+var import_node_path22 = require("node:path");
 var FixTier;
 (function(FixTier2) {
   FixTier2[FixTier2["REGEX"] = 1] = "REGEX";
@@ -218900,6 +218995,16 @@ var BUILTIN_CODEMODS = [
   {
     package: "react-router-dom",
     versionRange: { fromMajor: 5, toMajor: 6 },
+    errorMatch: "Switch.*(is not exported|not a function)|<Switch>",
+    description: "</Switch> \u2192 </Routes> (React Router 6)",
+    transform: {
+      find: "</Switch>",
+      replace: "</Routes>"
+    }
+  },
+  {
+    package: "react-router-dom",
+    versionRange: { fromMajor: 5, toMajor: 6 },
     errorMatch: "useHistory.*(is not exported|not a function)",
     description: "useHistory() \u2192 useNavigate() (React Router 6)",
     transform: {
@@ -218985,7 +219090,8 @@ async function tryBuiltinCodemods(ctx) {
       const { fromMajor: rf, toMajor: rt2 } = c2.versionRange;
       if (rf !== void 0 && fromMajor !== rf)
         return false;
-      if (rt2 !== void 0 && toMajor > rt2)
+      const upper = rt2 ?? (rf !== void 0 ? rf + 1 : void 0);
+      if (upper !== void 0 && toMajor > upper)
         return false;
     }
     return true;
@@ -219167,9 +219273,9 @@ async function learnFromSuccessfulFix(ctx, contextKey, editedFiles, model) {
     });
   }
 }
-function buildContextKey(packageName, from, to, failureOutput) {
+function buildContextKey(packageName, from, to, failureOutput, contentFingerprint) {
   const normalized = failureOutput.replace(/[^\s]*node_modules[^\s]*/g, "<pkg>").replace(/[A-Za-z]:?[\\/][^\s:;)]+/g, "<path>").replace(/:\d+:\d+/g, "").replace(/\d+ms/g, "<time>").replace(/\s+/g, " ").trim().slice(0, 2e3);
-  return `${packageName}@${from}->${to}::${normalized}`;
+  return `${packageName}@${from}->${to}::${normalized}${contentFingerprint ? `::${contentFingerprint}` : ""}`;
 }
 function parseMajor(version) {
   const m2 = version.replace(/^[~^>=\s]*/, "").match(/^(\d+)/);
@@ -219352,6 +219458,7 @@ Your job: edit the project's source code so that build and tests pass again \u20
 
 Rules:
 - Make the smallest correct change that adapts the code to the new version's API.
+- Prefer edit_file for updating existing code (targeted search/replace) to avoid accidentally truncating or omitting lines. Only use write_file for new files or complete rewrites.
 - Prefer following each dependency's documented migration path (renamed exports, changed signatures, moved modules, new required options). If release notes are provided below, treat them as authoritative over guessing.
 - Use search_code to find ALL call sites of the breaking API across the repo before editing \u2014 a partial fix that leaves other files broken wastes rounds.
 - Never edit ${protectedFiles}. The upgrade is intentional.
@@ -219392,8 +219499,21 @@ var tools = [
     }
   },
   {
+    name: "edit_file",
+    description: "Replace an exact chunk of text in an existing file. Strongly preferred over write_file to avoid accidental truncations or lost code.",
+    parameters: {
+      type: "object",
+      properties: {
+        path: { type: "string", description: "project-relative file path" },
+        old_string: { type: "string", description: "exact string to replace (must match uniquely in file)" },
+        new_string: { type: "string", description: "replacement string" }
+      },
+      required: ["path", "old_string", "new_string"]
+    }
+  },
+  {
     name: "write_file",
-    description: "Overwrite a project-relative file with new contents.",
+    description: "Overwrite a project-relative file with new contents (or create new file). For small edits, prefer edit_file.",
     parameters: {
       type: "object",
       properties: { path: { type: "string" }, content: { type: "string" } },
@@ -219543,6 +219663,58 @@ async function toolResult(cwd, pm, checkOverrides, name, input, onFixSuggestion)
         return { text: "(file too large to read)" };
       return { text: await (0, import_promises14.readFile)(abs, "utf8") };
     }
+    case "edit_file": {
+      const abs = safePath(cwd, input.path);
+      const rel = (0, import_node_path24.relative)(cwd, abs);
+      const adapter = getAdapter(pm);
+      if (isProtectedWrite(rel, adapter.manifestFiles, adapter.lockFiles)) {
+        return {
+          text: `error: edit to ${input.path} blocked \u2014 it is a dependency manifest/lockfile or secrets file.`
+        };
+      }
+      let content = "";
+      try {
+        content = await (0, import_promises14.readFile)(abs, "utf8");
+      } catch (err) {
+        return { text: `error: file ${input.path} does not exist (use write_file to create new files)` };
+      }
+      const oldStr = input.old_string;
+      const newStr = input.new_string;
+      if (!oldStr) {
+        return { text: `error: old_string cannot be empty` };
+      }
+      const occurrences = content.split(oldStr).length - 1;
+      if (occurrences === 0) {
+        return {
+          text: `error: old_string not found in ${input.path}. Make sure the string matches verbatim, including indentation and whitespace.`
+        };
+      }
+      if (occurrences > 1) {
+        return {
+          text: `error: old_string matched ${occurrences} locations in ${input.path}. Please provide more surrounding lines for unique context.`
+        };
+      }
+      const updated = content.replace(oldStr, newStr);
+      if (onFixSuggestion) {
+        const decision = await onFixSuggestion({
+          path: input.path,
+          diff: simpleDiff(input.path, content, updated)
+        });
+        switch (decision.action) {
+          case "reject":
+            return { text: `edit to ${input.path} REJECTED by user \u2014 do not retry the same change`, skipped: true };
+          case "skip":
+            return { text: `edit to ${input.path} skipped by user`, skipped: true };
+          case "edit":
+            await (0, import_promises14.writeFile)(abs, decision.content, "utf8");
+            return { text: `applied user-edited changes to ${input.path}` };
+          case "accept":
+            break;
+        }
+      }
+      await (0, import_promises14.writeFile)(abs, updated, "utf8");
+      return { text: `edited ${input.path}` };
+    }
     case "write_file": {
       const abs = safePath(cwd, input.path);
       const rel = (0, import_node_path24.relative)(cwd, abs);
@@ -219553,12 +219725,23 @@ async function toolResult(cwd, pm, checkOverrides, name, input, onFixSuggestion)
         };
       }
       let content = input.content;
-      if (onFixSuggestion) {
-        let oldContent = "";
-        try {
-          oldContent = await (0, import_promises14.readFile)(abs, "utf8");
-        } catch {
+      let oldContent = "";
+      let exists = false;
+      try {
+        oldContent = await (0, import_promises14.readFile)(abs, "utf8");
+        exists = true;
+      } catch {
+      }
+      if (exists) {
+        const oldLines = oldContent.split("\n").length;
+        const newLines = content.split("\n").length;
+        if (oldLines > 40 && newLines < oldLines * 0.5) {
+          return {
+            text: `error: write_file rejected due to code truncation safety guard. The existing file has ${oldLines} lines, but proposed content has only ${newLines} lines (loss of > 50%). If you are fixing a small section, use edit_file instead to avoid deleting code.`
+          };
         }
+      }
+      if (onFixSuggestion) {
         const decision = await onFixSuggestion({
           path: input.path,
           diff: simpleDiff(input.path, oldContent, content)
@@ -219643,7 +219826,6 @@ async function runFixLoop(opts) {
   const log = opts.onLog ?? (() => {
   });
   const usage = { inputTokens: 0, outputTokens: 0 };
-  const editedFiles = /* @__PURE__ */ new Set();
   const SYSTEM = buildSystemPrompt(pm, opts.deps);
   const trimmedFailure = trimFailureOutput(opts.failureOutput);
   if (trimmedFailure.length < opts.failureOutput.length) {
@@ -219658,7 +219840,15 @@ async function runFixLoop(opts) {
   const primaryDep = opts.deps?.[0]?.dep ?? opts.dep;
   const primaryFrom = opts.deps?.[0]?.from ?? opts.from;
   const primaryTo = opts.deps?.[0]?.to ?? opts.to;
-  const contextKey = buildContextKey(primaryDep, primaryFrom, primaryTo, trimmedFailure);
+  const fingerprint = (0, import_node_crypto2.createHash)("sha256");
+  for (const f2 of candidateFiles) {
+    try {
+      fingerprint.update(f2);
+      fingerprint.update(await (0, import_promises14.readFile)((0, import_node_path24.join)(opts.cwd, f2), "utf8"));
+    } catch {
+    }
+  }
+  const contextKey = buildContextKey(primaryDep, primaryFrom, primaryTo, trimmedFailure, candidateFiles.length > 0 ? fingerprint.digest("hex").slice(0, 16) : void 0);
   if (!opts.noFreeTiers) {
     const patternCtx = {
       cwd: opts.cwd,
@@ -219668,6 +219858,7 @@ async function runFixLoop(opts) {
       failureOutput: trimmedFailure,
       candidateFiles: candidateFiles.length > 0 ? candidateFiles : ["."]
     };
+    const preTierSnapshot = await snapshotFiles(opts.cwd, patternCtx.candidateFiles);
     const t1 = await tryBuiltinCodemods(patternCtx);
     if (t1.advice && t1.advice.length > 0) {
       for (const a2 of t1.advice)
@@ -219680,9 +219871,8 @@ async function runFixLoop(opts) {
         log("tier 1 (codemod): check passed \u2014 fixed with 0 tokens");
         return tierResult(true, t1.editedFiles, FixTier.REGEX);
       }
-      log("tier 1 (codemod): edit applied but check still failing \u2014 escalating");
-      for (const f2 of t1.editedFiles)
-        editedFiles.add(f2);
+      log("tier 1 (codemod): edit applied but check still failing \u2014 rolling back and escalating");
+      await rollbackTierEdits(opts.cwd, t1.editedFiles, preTierSnapshot);
     }
     if (!opts.noCache) {
       const t2 = await tryLearnedPatterns(patternCtx);
@@ -219691,11 +219881,10 @@ async function runFixLoop(opts) {
         const check = await runChecks(pm, opts.cwd, checkOverrides);
         if (check.ok) {
           log("tier 2 (learned pattern): check passed \u2014 fixed with 0 tokens");
-          return tierResult(true, [...editedFiles, ...t2.editedFiles], FixTier.RULE, true);
+          return tierResult(true, t2.editedFiles, FixTier.RULE, true);
         }
-        log("tier 2 (learned pattern): edit applied but check still failing \u2014 escalating");
-        for (const f2 of t2.editedFiles)
-          editedFiles.add(f2);
+        log("tier 2 (learned pattern): edit applied but check still failing \u2014 rolling back and escalating");
+        await rollbackTierEdits(opts.cwd, t2.editedFiles, preTierSnapshot);
       }
       const t3 = await tryCachedLlmFix(patternCtx, contextKey);
       if (t3.applied) {
@@ -219703,11 +219892,10 @@ async function runFixLoop(opts) {
         const check = await runChecks(pm, opts.cwd, checkOverrides);
         if (check.ok) {
           log("tier 3 (cached fix): check passed \u2014 fixed with 0 tokens");
-          return tierResult(true, [...editedFiles, ...t3.editedFiles], FixTier.CACHED, true);
+          return tierResult(true, t3.editedFiles, FixTier.CACHED, true);
         }
-        log("tier 3 (cached fix): didn't resolve in this project \u2014 escalating to LLM");
-        for (const f2 of t3.editedFiles)
-          editedFiles.add(f2);
+        log("tier 3 (cached fix): didn't resolve in this project \u2014 rolling back and escalating to LLM");
+        await rollbackTierEdits(opts.cwd, t3.editedFiles, preTierSnapshot);
       }
     }
   }
@@ -219762,7 +219950,7 @@ You have ${remaining} round(s) left. Wrap up and verify now.` : SYSTEM;
     }
     const results = [];
     for (const tc of turn.toolCalls) {
-      if (tc.name === "write_file") {
+      if (tc.name === "write_file" || tc.name === "edit_file") {
         llmEditedFiles.add(tc.input.path);
       }
       let out;
@@ -219787,7 +219975,7 @@ You have ${remaining} round(s) left. Wrap up and verify now.` : SYSTEM;
     }
   }
   if (fixed && !opts.noCache) {
-    const allEdited = [...editedFiles, ...llmEditedFiles];
+    const allEdited = [...llmEditedFiles];
     await learnFromSuccessfulFix({
       cwd: opts.cwd,
       packageName: primaryDep,
@@ -219806,7 +219994,7 @@ You have ${remaining} round(s) left. Wrap up and verify now.` : SYSTEM;
     rounds: Math.min(round, opts.maxRounds),
     unverifiable: false,
     usage,
-    editedFiles: [...editedFiles, ...llmEditedFiles],
+    editedFiles: [...llmEditedFiles],
     budgetExceeded,
     fixedByTier: fixed ? FixTier.LLM : void 0
   };
@@ -219822,6 +220010,32 @@ function tierResult(fixed, editedFiles, tier, cacheHit = false) {
     fixedByTier: tier,
     cacheHit
   };
+}
+async function snapshotFiles(cwd, files) {
+  const snap = /* @__PURE__ */ new Map();
+  for (const f2 of files) {
+    try {
+      const abs = (0, import_node_path24.join)(cwd, f2);
+      if (!(await (0, import_promises14.stat)(abs)).isFile())
+        continue;
+      snap.set(f2, await (0, import_promises14.readFile)(abs, "utf8"));
+    } catch {
+    }
+  }
+  return snap;
+}
+async function rollbackTierEdits(cwd, editedFiles, snapshot) {
+  for (const f2 of editedFiles) {
+    const abs = (0, import_node_path24.join)(cwd, f2);
+    try {
+      const prev = snapshot.get(f2);
+      if (prev === void 0)
+        await (0, import_promises14.rm)(abs, { force: true });
+      else
+        await (0, import_promises14.writeFile)(abs, prev, "utf8");
+    } catch {
+    }
+  }
 }
 
 // node_modules/@anthropic-ai/sdk/internal/tslib.mjs
@@ -231006,84 +231220,60 @@ ${listProviders()}`);
 }
 
 // dist/engine/verify.js
-var import_node_child_process2 = require("node:child_process");
-var import_node_util = require("node:util");
 var import_node_path25 = require("node:path");
-var execAsync = (0, import_node_util.promisify)(import_node_child_process2.exec);
+var CHECK_TIMEOUT_MS = 12e4;
 async function runStaticAnalysis(cwd, options = {}) {
   const { checkTypes = true, checkLint = true, strictLint = false } = options;
   const results = [];
   if (checkTypes && await hasTsConfig(cwd)) {
-    try {
-      const { stdout, stderr } = await execAsync("npx tsc --noEmit", {
-        cwd,
-        timeout: 6e4
-        // 1 minute timeout
-      });
-      results.push({
-        passed: true,
-        stage: "types",
-        output: stdout + stderr
-      });
-    } catch (err) {
-      const output = err.stdout + err.stderr;
-      results.push({
-        passed: false,
-        stage: "types",
-        output,
-        warnings: parseTypeErrors(output)
-      });
-    }
+    const r2 = await exec("npx", ["tsc", "--noEmit"], { cwd, timeout: CHECK_TIMEOUT_MS });
+    results.push({
+      passed: r2.code === 0,
+      stage: "types",
+      output: r2.combined,
+      ...r2.code !== 0 ? { warnings: parseTypeErrors(r2.combined) } : {}
+    });
   }
-  if (checkLint && await hasEslintConfig(cwd)) {
-    try {
-      const { stdout, stderr } = await execAsync("npx eslint . --ext .ts,.tsx,.js,.jsx --format compact", {
-        cwd,
-        timeout: 6e4
-      });
-      results.push({
-        passed: true,
-        stage: "lint",
-        output: stdout + stderr
-      });
-    } catch (err) {
-      const output = err.stdout + err.stderr;
-      results.push({
-        passed: strictLint ? false : true,
-        // Lint warnings don't fail by default
-        stage: "lint",
-        output,
-        warnings: parseLintWarnings(output)
-      });
-    }
+  const eslint = await detectEslintConfig(cwd);
+  if (checkLint && eslint) {
+    const args = eslint.kind === "flat" ? ["eslint", ".", "--format", "compact"] : ["eslint", ".", "--ext", ".ts,.tsx,.js,.jsx", "--format", "compact"];
+    const r2 = await exec("npx", args, { cwd, timeout: CHECK_TIMEOUT_MS });
+    const failed = r2.code !== 0;
+    results.push({
+      passed: strictLint ? !failed : true,
+      // Lint errors don't fail by default…
+      stage: "lint",
+      output: r2.combined,
+      // …but the warnings must still reach the summary — previously they were
+      // computed and then silently dropped by the caller.
+      ...failed ? { warnings: parseLintWarnings(r2.combined) } : {}
+    });
   }
   return results;
 }
 async function hasTsConfig(cwd) {
   return await pathExists((0, import_node_path25.join)(cwd, "tsconfig.json"));
 }
-async function hasEslintConfig(cwd) {
-  const configs = [
-    ".eslintrc.js",
-    ".eslintrc.cjs",
-    ".eslintrc.json",
-    ".eslintrc.yml",
-    ".eslintrc.yaml"
-  ];
-  for (const cfg of configs) {
+async function detectEslintConfig(cwd) {
+  for (const cfg of ["eslint.config.js", "eslint.config.mjs", "eslint.config.cjs", "eslint.config.ts"]) {
     if (await pathExists((0, import_node_path25.join)(cwd, cfg)))
-      return true;
+      return { kind: "flat" };
+  }
+  for (const cfg of [".eslintrc", ".eslintrc.js", ".eslintrc.cjs", ".eslintrc.json", ".eslintrc.yml", ".eslintrc.yaml"]) {
+    if (await pathExists((0, import_node_path25.join)(cwd, cfg)))
+      return { kind: "legacy" };
   }
   try {
     const pkgPath = (0, import_node_path25.join)(cwd, "package.json");
     if (await pathExists(pkgPath)) {
-      const pkg = JSON.parse(await import("node:fs/promises").then((fs2) => fs2.readFile(pkgPath, "utf8")));
+      const { readFile: readFile17 } = await import("node:fs/promises");
+      const pkg = JSON.parse(await readFile17(pkgPath, "utf8"));
       if (pkg.eslintConfig)
-        return true;
+        return { kind: "legacy" };
     }
   } catch {
   }
-  return false;
+  return null;
 }
 function parseTypeErrors(output) {
   const lines = output.split("\n");
@@ -231112,15 +231302,13 @@ function parseLintWarnings(output) {
 }
 
 // dist/engine/change-detector.js
-var import_node_child_process3 = require("node:child_process");
-var import_node_util2 = require("node:util");
-var execAsync2 = (0, import_node_util2.promisify)(import_node_child_process3.exec);
 async function detectSuspiciousChanges(cwd) {
+  const result = await exec("git", ["diff", "HEAD"], { cwd });
+  if (result.code !== 0)
+    return [];
+  const diff = result.stdout;
   const changes = [];
-  try {
-    const { stdout: diff } = await execAsync2("git diff HEAD", { cwd });
-    if (!diff.trim())
-      return [];
+  if (diff.trim()) {
     const testFileChanges = detectTestFileChanges(diff);
     changes.push(...testFileChanges);
     const largeDeletions = detectLargeDeletions(diff);
@@ -231129,7 +231317,30 @@ async function detectSuspiciousChanges(cwd) {
     changes.push(...commentedTests);
     const removedTests = detectRemovedTests(diff);
     changes.push(...removedTests);
-  } catch (err) {
+  }
+  const untrackedChanges = await detectUntrackedFiles(cwd);
+  changes.push(...untrackedChanges);
+  return changes;
+}
+async function detectUntrackedFiles(cwd) {
+  const changes = [];
+  const res = await exec("git", ["status", "--porcelain"], { cwd });
+  if (res.code !== 0)
+    return [];
+  const testFilePattern = /\.(test|spec)\.(ts|js|tsx|jsx)$/;
+  for (const line of res.stdout.split("\n")) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith("?? ")) {
+      const file = trimmed.slice(3).trim();
+      if (testFilePattern.test(file)) {
+        changes.push({
+          type: "test-modified",
+          file,
+          description: "New test file created by agent (verify it is not mocking around real failures)",
+          severity: "critical"
+        });
+      }
+    }
   }
   return changes;
 }
@@ -231197,27 +231408,31 @@ function detectCommentedTests(diff) {
 }
 function detectRemovedTests(diff) {
   const changes = [];
-  const lines = diff.split("\n");
   let removedTestCount = 0;
-  let currentFile = "unknown";
-  for (const line of lines) {
+  let currentFile = null;
+  const flush = () => {
+    if (currentFile !== null && removedTestCount > 0) {
+      changes.push({
+        type: "test-removed",
+        file: currentFile,
+        description: `${removedTestCount} test case(s) were deleted`,
+        severity: "critical"
+      });
+    }
+  };
+  for (const line of diff.split("\n")) {
     const fileMatch = line.match(/^diff --git a\/(.+?) b\/(.+?)$/);
     if (fileMatch) {
+      flush();
       currentFile = fileMatch[2];
       removedTestCount = 0;
+      continue;
     }
     if (line.startsWith("-") && !line.startsWith("---") && /\b(it|test)\s*\(/.test(line)) {
       removedTestCount++;
     }
   }
-  if (removedTestCount > 0) {
-    changes.push({
-      type: "test-removed",
-      file: currentFile,
-      description: `${removedTestCount} test case(s) were deleted`,
-      severity: "critical"
-    });
-  }
+  flush();
   return changes;
 }
 function findFileContext(diff, lineIndex) {
@@ -231238,6 +231453,19 @@ var import_promises17 = require("fs/promises");
 var import_fs2 = require("fs");
 var import_path9 = require("path");
 var import_promises15 = require("fs/promises");
+var composeCommandCache;
+async function composeCommand() {
+  if (composeCommandCache !== void 0)
+    return composeCommandCache;
+  if ((await exec("docker-compose", ["--version"], { cwd: process.cwd() })).code === 0) {
+    composeCommandCache = ["docker-compose"];
+  } else if ((await exec("docker", ["compose", "version"], { cwd: process.cwd() })).code === 0) {
+    composeCommandCache = ["docker", "compose"];
+  } else {
+    composeCommandCache = null;
+  }
+  return composeCommandCache;
+}
 async function checkDockerAvailable() {
   const info2 = {
     available: false,
@@ -231245,14 +231473,14 @@ async function checkDockerAvailable() {
   };
   try {
     const versionResult = await exec("docker", ["--version"], { cwd: process.cwd() });
+    if (versionResult.code !== 0)
+      return info2;
     info2.version = versionResult.stdout.trim();
-    await exec("docker", ["ps"], { cwd: process.cwd() });
+    const psResult = await exec("docker", ["ps"], { cwd: process.cwd() });
+    if (psResult.code !== 0)
+      return info2;
     info2.available = true;
-    try {
-      await exec("docker-compose", ["--version"], { cwd: process.cwd() });
-      info2.composeAvailable = true;
-    } catch {
-    }
+    info2.composeAvailable = await composeCommand() !== null;
   } catch {
   }
   return info2;
@@ -231292,21 +231520,18 @@ async function runVerificationInContainer(cwd, options) {
   let stderr = "";
   let buildSuccess = false;
   let testsPassed = false;
-  try {
-    const result = await exec("docker", args, {
-      cwd,
-      timeout: options.timeout || 6e5
-      // 10 minutes default
-    });
-    stdout = result.stdout;
-    stderr = result.stderr;
-    exitCode = 0;
+  const result = await exec("docker", args, {
+    cwd,
+    timeout: options.timeout || 6e5
+    // 10 minutes default (milliseconds)
+  });
+  stdout = result.stdout;
+  stderr = result.stderr;
+  exitCode = result.code;
+  if (result.code === 0) {
     buildSuccess = true;
     testsPassed = true;
-  } catch (error) {
-    exitCode = error.exitCode || 1;
-    stdout = error.stdout || "";
-    stderr = error.stderr || "";
+  } else {
     buildSuccess = !stderr.includes("npm run build") && !stdout.includes("build failed");
     testsPassed = false;
   }
@@ -231320,8 +231545,12 @@ async function runVerificationInContainer(cwd, options) {
 }
 async function startComposeServices(cwd, composeFile) {
   console.log("\u{1F680} Starting docker-compose services...");
+  const cmd = await composeCommand();
+  if (!cmd)
+    throw new Error("docker-compose is not available");
   const projectName = `greenbump-${Date.now()}`;
-  await exec("docker-compose", [
+  await exec(cmd[0], [
+    ...cmd.slice(1),
     "-f",
     composeFile,
     "-p",
@@ -231333,7 +231562,10 @@ async function startComposeServices(cwd, composeFile) {
 }
 async function checkServiceHealth(projectName, serviceName) {
   try {
-    const result = await exec("docker-compose", ["-p", projectName, "ps", "--filter", `name=${serviceName}`, "--format", "json"], { cwd: process.cwd() });
+    const cmd = await composeCommand();
+    if (!cmd)
+      return false;
+    const result = await exec(cmd[0], [...cmd.slice(1), "-p", projectName, "ps", "--filter", `name=${serviceName}`, "--format", "json"], { cwd: process.cwd() });
     const output = result.stdout.trim();
     if (!output)
       return false;
@@ -231367,8 +231599,12 @@ async function waitForServices(projectName, services, timeout = 60) {
 }
 async function stopComposeServices(cwd, composeFile, projectName) {
   console.log("\u{1F6D1} Stopping docker-compose services...");
+  const cmd = await composeCommand();
+  if (!cmd)
+    return;
   try {
-    await exec("docker-compose", [
+    await exec(cmd[0], [
+      ...cmd.slice(1),
       "-f",
       composeFile,
       "-p",
@@ -231501,10 +231737,6 @@ async function generateComposeFile(services) {
 
 services:
 ${servicesYaml}
-
-networks:
-  default:
-    name: greenbump_network
 `;
 }
 function getServiceConfig(serviceName) {
@@ -231797,56 +232029,47 @@ async function runInSandbox(cwd, options) {
 var import_fs5 = require("fs");
 var import_path13 = require("path");
 var import_promises18 = require("fs/promises");
-async function hasBuildScript(cwd) {
-  const pkgPath = (0, import_path13.join)(cwd, "package.json");
-  if (!(0, import_fs5.existsSync)(pkgPath))
-    return false;
-  try {
-    const content = await (0, import_promises18.readFile)(pkgPath, "utf-8");
-    const pkg = JSON.parse(content);
-    return pkg.scripts?.build !== void 0;
-  } catch {
-    return false;
-  }
-}
-async function hasTestScript(cwd) {
-  const pkgPath = (0, import_path13.join)(cwd, "package.json");
-  if (!(0, import_fs5.existsSync)(pkgPath))
-    return false;
-  try {
-    const content = await (0, import_promises18.readFile)(pkgPath, "utf-8");
-    const pkg = JSON.parse(content);
-    return pkg.scripts?.test !== void 0;
-  } catch {
-    return false;
-  }
-}
 async function getTotalSize(dirPath) {
-  if (!(0, import_fs5.existsSync)(dirPath))
-    return 0;
-  try {
-    const result = await exec("du", ["-sb", dirPath], { cwd: dirPath });
-    const match = result.stdout.match(/^(\d+)/);
-    return match ? parseInt(match[1], 10) : 0;
-  } catch {
-    return 0;
+  let total = 0;
+  async function walk(dir) {
+    let entries;
+    try {
+      entries = await (0, import_promises18.readdir)(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e2 of entries) {
+      const abs = (0, import_path13.join)(dir, e2.name);
+      if (e2.isDirectory()) {
+        await walk(abs);
+      } else if (e2.isFile()) {
+        const s2 = await (0, import_promises18.stat)(abs).catch(() => null);
+        if (s2)
+          total += s2.size;
+      }
+    }
   }
+  await walk(dirPath);
+  return total;
 }
-async function captureBaseline(cwd) {
+var MEASURE_TIMEOUT_MS = 3e5;
+async function captureBaseline(cwd, commands = {}) {
   console.log("\u{1F4CA} Capturing performance baseline...");
   const metrics = {
     timestamp: /* @__PURE__ */ new Date()
   };
   try {
-    console.log("   Measuring install time...");
-    const installStart = Date.now();
-    await exec("npm", ["install"], { cwd });
-    metrics.installTime = (Date.now() - installStart) / 1e3;
-    console.log(`   \u2713 Install: ${metrics.installTime.toFixed(1)}s`);
-    if (await hasBuildScript(cwd)) {
+    if (commands.install) {
+      console.log("   Measuring install time...");
+      const installStart = Date.now();
+      await exec(commands.install.cmd, commands.install.args, { cwd, timeout: MEASURE_TIMEOUT_MS });
+      metrics.installTime = (Date.now() - installStart) / 1e3;
+      console.log(`   \u2713 Install: ${metrics.installTime.toFixed(1)}s`);
+    }
+    if (commands.build) {
       console.log("   Measuring build time...");
       const buildStart = Date.now();
-      await exec("npm", ["run", "build"], { cwd });
+      await exec(commands.build.cmd, commands.build.args, { cwd, timeout: MEASURE_TIMEOUT_MS });
       metrics.buildTime = (Date.now() - buildStart) / 1e3;
       console.log(`   \u2713 Build: ${metrics.buildTime.toFixed(1)}s`);
       const distDir = (0, import_path13.join)(cwd, "dist");
@@ -231855,10 +232078,10 @@ async function captureBaseline(cwd) {
         console.log(`   \u2713 Bundle: ${(metrics.bundleSize / 1024).toFixed(0)} KB`);
       }
     }
-    if (await hasTestScript(cwd)) {
+    if (commands.test) {
       console.log("   Measuring test time...");
       const testStart = Date.now();
-      await exec("npm", ["test"], { cwd });
+      await exec(commands.test.cmd, commands.test.args, { cwd, timeout: MEASURE_TIMEOUT_MS });
       metrics.testTime = (Date.now() - testStart) / 1e3;
       console.log(`   \u2713 Test: ${metrics.testTime.toFixed(1)}s`);
     }
@@ -232333,6 +232556,8 @@ async function run(opts) {
   log(`target: ${target.name} ${from} \u2192 ${to}`);
   let branch;
   let baseBranch;
+  let worktreeDir;
+  let effectiveCwd = cwd;
   const gitRepo = await isGitRepo(cwd);
   if (gitRepo && !opts.noGit) {
     if (!await isTreeClean(cwd)) {
@@ -232340,13 +232565,53 @@ async function run(opts) {
     }
     baseBranch = await currentBranch(cwd);
     branch = `greenbump/${target.name.replace(/[^a-zA-Z0-9._-]/g, "-")}-${to}`;
-    await createBranch(cwd, branch);
-    log(`created branch ${branch}`);
+    if (opts.worktree) {
+      worktreeDir = await (0, import_promises22.mkdtemp)((0, import_node_path29.join)((0, import_node_os4.tmpdir)(), "greenbump-wt-"));
+      await addWorktree(cwd, worktreeDir, branch);
+      effectiveCwd = worktreeDir;
+      log(`created isolated worktree in ${worktreeDir} on branch ${branch}`);
+    } else {
+      await createBranch(cwd, branch);
+      log(`created branch ${branch}`);
+    }
   }
+  try {
+    return await runInContext({
+      ...opts,
+      cwd: effectiveCwd,
+      pm,
+      target,
+      from,
+      to,
+      branch,
+      baseBranch,
+      startedAt,
+      log,
+      checkOverrides
+    });
+  } finally {
+    if (worktreeDir) {
+      await removeWorktree(cwd, worktreeDir, true).catch(() => {
+      });
+      await (0, import_promises22.rm)(worktreeDir, { recursive: true, force: true }).catch(() => {
+      });
+      log(`cleaned up isolated worktree`);
+    }
+  }
+}
+async function runInContext(args) {
+  const { cwd, pm, target, from, to, branch, baseBranch, startedAt, log, checkOverrides } = args;
+  const opts = args;
   let perfBaseline;
   if (opts.detectRegressions) {
     log("capturing performance baseline\u2026");
-    perfBaseline = await captureBaseline(cwd);
+    const cmds = await resolveCheckCommands(pm, cwd, checkOverrides);
+    perfBaseline = await captureBaseline(cwd, {
+      // Bare install is only meaningful for the npm-family package managers
+      install: ["npm", "yarn", "pnpm"].includes(pm) ? { cmd: pm, args: ["install"] } : void 0,
+      build: cmds.build,
+      test: cmds.test
+    });
   }
   log("running baseline build + tests\u2026");
   const baseline = await runChecks(pm, cwd, checkOverrides);
@@ -232396,7 +232661,7 @@ ${up.output}`);
     return summary;
   }
   summary.neededFix = true;
-  let changelog = await fetchChangelog(target.name, from, to);
+  let changelog = await fetchChangelog(target.name, from, to, { cache: !opts.noCache });
   if (changelog)
     log(`found changelog/release notes for ${target.name}`);
   const provider = createProvider({
@@ -232459,10 +232724,13 @@ ${changelog.slice(0, 2e3)}`;
   log("running static analysis\u2026");
   const staticResults = await runStaticAnalysis(cwd, { strictLint: false });
   const typesFailed = staticResults.some((r2) => r2.stage === "types" && !r2.passed);
+  const analysisWarnings = staticResults.flatMap((r2) => r2.warnings || []);
   if (typesFailed) {
     log("\u26A0\uFE0F  TypeScript type check failed after fix");
     summary.needsReview = true;
-    summary.staticAnalysisWarnings = staticResults.filter((r2) => !r2.passed).flatMap((r2) => r2.warnings || []);
+  }
+  if (analysisWarnings.length > 0) {
+    summary.staticAnalysisWarnings = analysisWarnings;
   }
   const suspiciousChanges = await detectSuspiciousChanges(cwd);
   const criticalChanges = suspiciousChanges.filter((c2) => c2.severity === "critical");
@@ -232490,7 +232758,7 @@ ${changelog.slice(0, 2e3)}`;
       enabled: true,
       services: opts.services,
       keepContainer: opts.keepContainer,
-      timeout: 600
+      timeout: 6e5
     });
     if (!sandboxResult.skipped) {
       summary.sandboxResult = {
@@ -232535,9 +232803,19 @@ async function maybeCommit(cwd, summary, shouldCommit) {
   if (!summary.branch || !shouldCommit)
     return;
   const note = summary.neededFix ? ` and fix ${summary.editedFiles.length} file(s)` : "";
-  await commitAll(cwd, `chore(deps): bump ${summary.dep} ${summary.from} \u2192 ${summary.to}${note}
+  try {
+    await commitAll(cwd, `chore(deps): bump ${summary.dep} ${summary.from} \u2192 ${summary.to}${note}
 
 Automated by greenbump.`);
+  } catch (err) {
+    summary.committed = false;
+    summary.needsReview = true;
+    summary.staticAnalysisWarnings = [
+      ...summary.staticAnalysisWarnings ?? [],
+      `git commit failed: ${err.message}`
+    ];
+    return;
+  }
   summary.committed = true;
   summary.diffStat = await diffStat(cwd, "HEAD~1");
   if (summary.neededFix)
@@ -232602,7 +232880,7 @@ function renderPrBody(s2) {
 }
 
 // dist/report.js
-var import_promises22 = require("node:fs/promises");
+var import_promises23 = require("node:fs/promises");
 var REPORT_SCHEMA_VERSION = 1;
 function buildReport(runs) {
   return {
@@ -232612,7 +232890,7 @@ function buildReport(runs) {
   };
 }
 async function writeReport(path2, envelope) {
-  await (0, import_promises22.writeFile)(path2, JSON.stringify(envelope, null, 2) + "\n", "utf8");
+  await (0, import_promises23.writeFile)(path2, JSON.stringify(envelope, null, 2) + "\n", "utf8");
 }
 
 // dist/action/github.js
@@ -232747,11 +233025,18 @@ async function main() {
   }
   await exec("git", ["config", "user.name", "greenbump[bot]"], { cwd });
   await exec("git", ["config", "user.email", "greenbump@users.noreply.github.com"], { cwd });
-  const remote = `https://x-access-token:${token}@github.com/${repoSlug}.git`;
-  const push2 = await exec("git", ["push", "--force", remote, `HEAD:${summary.branch}`], { cwd });
+  const remote = `https://github.com/${repoSlug}.git`;
+  const push2 = await exec("git", [
+    "-c",
+    `http.https://github.com/.extraheader=AUTHORIZATION: bearer ${token}`,
+    "push",
+    "--force",
+    remote,
+    `HEAD:${summary.branch}`
+  ], { cwd });
   if (push2.code !== 0) {
     setFailed(`failed to push branch:
-${push2.combined}`);
+${push2.combined.split(token).join("***")}`);
     return;
   }
   const stillBroken = summary.neededFix && !summary.fixed;
@@ -232770,6 +233055,11 @@ ${push2.combined}`);
     labels: summary.needsReview ? [reviewLabel] : void 0
   });
   setOutput("pr-url", url ?? "");
+  if (!url) {
+    setOutput("status", "pr-failed");
+    setFailed("branch pushed, but creating the pull request failed (see warnings above).");
+    return;
+  }
   setOutput("status", stillBroken ? "unfixed" : summary.needsReview ? "pr-needs-review" : "pr-opened");
   info(draft ? "opened a draft PR for review." : "opened a PR \u2014 build + tests green.");
 }

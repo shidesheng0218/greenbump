@@ -1,4 +1,4 @@
-import { readFile, readdir, stat } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { join, relative } from "node:path";
 
 /**
@@ -123,30 +123,6 @@ export async function findRelatedTests(
   return [...tests].slice(0, 10);
 }
 
-/**
- * Read candidate files (truncated) to include as upfront context.
- * Returns a map of path → content.
- */
-export async function readCandidateContents(
-  files: string[],
-  cwd: string,
-  maxCharsPerFile = 8_000,
-): Promise<Map<string, string>> {
-  const out = new Map<string, string>();
-  for (const f of files) {
-    try {
-      let content = await readFile(join(cwd, f), "utf8");
-      if (content.length > maxCharsPerFile) {
-        content = content.slice(0, maxCharsPerFile) + "\n… (file truncated)";
-      }
-      out.set(f, content);
-    } catch {
-      // unreadable — skip
-    }
-  }
-  return out;
-}
-
 /** Estimate token count for a string (~4 chars/token for code+prose mix). */
 export function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
@@ -185,20 +161,3 @@ function normalizePath(p: string, cwd: string): string | null {
   return cleaned;
 }
 
-/**
- * Scan the project root for the most likely source dirs, so the candidate
- * search can stay focused (cheap heuristic, avoids walking node_modules).
- */
-export async function guessSourceDirs(cwd: string): Promise<string[]> {
-  const candidates = ["src", "lib", "app", "packages", "source", "test", "tests", "__tests__"];
-  const found: string[] = [];
-  try {
-    const entries = await readdir(cwd, { withFileTypes: true });
-    for (const e of entries) {
-      if (e.isDirectory() && candidates.includes(e.name)) found.push(e.name);
-    }
-  } catch {
-    // unreadable root — return empty
-  }
-  return found.length > 0 ? found : ["."];
-}

@@ -133,7 +133,7 @@ then re-ran your test suite to confirm the fix — all inside the fix loop shown
 - 🐳 **Docker sandbox mode** (`--sandbox`) - Run tests in clean containers
 - 🗄️ **Database integration testing** - Auto-start PostgreSQL, MySQL, Redis, MongoDB
 - 📊 **Performance regression detection** - Track build time, bundle size, memory usage
-- 🎯 **95%+ accuracy** with production-grade verification
+- 🎯 Extra assurance on top of your local build/test run — the sandbox reruns the same checks in a clean container
 
 ### 🌍 Multi-Ecosystem Support
 - **20+ ecosystems**: npm, pip, cargo, maven, poetry, gradle, and more
@@ -169,7 +169,7 @@ then re-ran your test suite to confirm the fix — all inside the fix loop shown
 - ✅ Multi-ecosystem support
 - ✅ Actual code fixing
 - ✅ Model flexibility
-- ✅ Production-grade verification (sandbox + databases + performance)
+- ✅ Isolated verification (optional sandbox + database services)
 
 ---
 
@@ -286,8 +286,8 @@ When an upgrade breaks the build, greenbump tries four escalating fix tiers — 
 | Tier | Strategy | Cost |
 |---|---|---|
 | 1 | **Builtin codemods** — regex transforms for well-known breakages (React 18→19, Express 4→5, Zod 3→4, React Router 5→6, Mongoose, Lodash, Node util.\*, …) | 0 tokens |
-| 2 | **Learned patterns** — past successful fixes distilled into reusable rules | 0 tokens |
-| 3 | **Cached LLM fixes** — identical failure context replays a previous fix | 0 tokens |
+| 2 | **Learned patterns** — extension point for hand-seeded fix rules (not auto-populated yet; see note below) | 0 tokens |
+| 3 | **Cached LLM fixes** — replays a previous fix only when the failure context AND the candidate files' contents both match | 0 tokens |
 | 4 | **LLM fix loop** — the full agent, only when tiers 1–3 miss | paid |
 
 24 builtin codemods ship out of the box (`greenbump --list-codemods` for the full list) —
@@ -297,7 +297,10 @@ edit, so tier 1 never silently misapplies a risky change.
 
 Verified end-to-end: Express 4→5 (`app.del`→`app.delete`) and Zod 3→4 (`error.errors`→
 `error.issues`) are both fixed by tier 1 with **0 input / 0 output tokens**. Successful
-LLM fixes are learned into the cache, so repeat failures across projects are free too.
+LLM fixes are stored in the tier-3 cache, so a repeat of the *same* failure on the *same*
+code is free too. (Tier 2 exists as an extension point for hand-seeded patterns — the
+auto-distillation of LLM fixes into generic rules is not implemented yet, and the tier
+table above says so.)
 
 #### See what it's actually saving you
 
@@ -325,10 +328,11 @@ task: route it to a cheaper model with `--digest-model` (e.g.
 Each call has a bounded output cap (8000 tokens for the fix agent, 2000 for the
 digest), and the digest result is cached per upgrade path so it's paid at most once.
 
-### Git
+### Git & Isolation
 
 | Flag | Description |
 |---|---|
+| `--worktree` | Run the upgrade in an isolated temporary git worktree to keep the primary directory clean. |
 | `--no-git` | Operate in place instead of on a new branch. |
 | `--pr-body` | Print a ready-to-paste PR body. |
 | `--report-file <path>` | Write a JSON report of the run(s) to this path. |
@@ -424,7 +428,6 @@ graph TB
     subgraph "Verification Layer"
         STATIC[Static Analysis<br/>TypeScript + ESLint]
         CHANGE[Change Detection<br/>Test mods, large deletions]
-        GRAPH[Dependency Graph<br/>Multi-stage fixes]
     end
 
     subgraph "Sandbox Layer (Optional)"
@@ -457,8 +460,7 @@ graph TB
     TOOLS --> CHECK
     
     STATIC --> CHANGE
-    CHANGE --> GRAPH
-    GRAPH --> DOCKER
+    CHANGE --> DOCKER
     
     DOCKER --> SERVICES
     SERVICES --> CONTAINER
@@ -482,7 +484,7 @@ graph TB
 | **Isolation** | Git Branch Manager, Baseline Runner | Isolate work on feature branch, verify starting state |
 | **Upgrade** | Package Manager, Verification Runner | Install new version and run checks |
 | **AI Fix** | LLM Agent, Tools, Changelog Fetcher | Automatically fix breaking changes with AI |
-| **Verification** | Static Analysis, Change Detection, Dependency Graph | Multi-layer validation (types, lints, suspicious changes) |
+| **Verification** | Static Analysis, Change Detection | Multi-layer validation (types, lints, suspicious changes) |
 | **Sandbox** | Docker Builder, Service Manager, Container Runner | Optional isolated testing with database services |
 | **Performance** | Performance Tracker, Regression Detector | Optional performance monitoring and regression alerts |
 | **Output** | Git Commit, PR Body Generator | Commit changes and generate PR description |
@@ -648,7 +650,7 @@ flowchart LR
 ```
 
 Each layer is independently swappable: pick any ecosystem adapter, any model provider, and
-opt into the sandbox only when you need production-grade isolation.
+opt into the sandbox when you want the checks rerun in a clean container.
 
 ---
 
@@ -764,7 +766,7 @@ Full example with all inputs: [examples/greenbump.yml](examples/greenbump.yml)
 - [x] **v0.1.0**: Core fix loop + multi-ecosystem support
 - [x] **v0.2.0**: Batch upgrades (`--all`), changelog integration
 - [x] **v0.3.0**: Static analysis (TypeScript + ESLint) + change detection
-- [x] **v0.4.0**: Multi-stage fix strategy + dependency graph analysis
+- [x] **v0.4.0**: AST verification + changelog digest
 - [x] **v0.5.0**: Docker sandbox + database testing + performance regression detection
 - [ ] **v0.6.0**: Web UI for monitoring upgrades
 - [ ] **v0.7.0**: Upgrade impact prediction (before running)

@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { readFile } from "node:fs/promises";
 import { exec } from "../exec.js";
 import { pathExists, type EcosystemAdapter, type Outdated } from "./types.js";
+import { fetchWithTimeout } from "./http.js";
 
 interface ElmJson {
   dependencies?: { direct?: Record<string, string> };
@@ -9,7 +10,7 @@ interface ElmJson {
 
 async function latestOnElmPackages(name: string): Promise<string | null> {
   try {
-    const res = await fetch(`https://package.elm-lang.org/packages/${name}/releases.json`);
+    const res = await fetchWithTimeout(`https://package.elm-lang.org/packages/${name}/releases.json`);
     if (!res.ok) return null;
     const data = (await res.json()) as Record<string, number>;
     const versions = Object.keys(data);

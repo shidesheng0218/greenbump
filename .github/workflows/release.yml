@@ -26,11 +26,9 @@ jobs:
       # author forgot to rebuild+commit it before tagging. Fail loud instead of quietly
       # publishing an npm package whose action-dist is stale relative to its own source.
       - run: git diff --exit-code action-dist/
-      - run: npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-      # Use the tag's CHANGELOG.md section as the release body instead of the
-      # generic template — keeps hand-written notes from being overwritten.
+      # Create the GitHub Release FIRST: if npm publish then fails, the worst
+      # case is a release page without a package — visible and retryable —
+      # instead of a published package with no release notes.
       - name: Extract changelog section for this tag
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
@@ -39,3 +37,6 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           body_path: release-notes.md
+      - run: npm publish --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

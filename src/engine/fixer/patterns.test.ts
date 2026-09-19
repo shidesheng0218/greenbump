@@ -360,3 +360,60 @@ test("buildContextKey: different errors produce different keys", () => {
   const key2 = buildContextKey("react", "18.0.0", "19.0.0", "TypeError: bar is not a function");
   assert.notEqual(key1, key2);
 });
+
+test("codemods: React Router <Switch> is rewritten as a pair (open AND close tags)", async () => {
+  const app = `import { Switch, Route } from 'react-router-dom';
+
+export function App() {
+  return (
+    <Switch>
+      <Route path="/" exact component={Home} />
+    </Switch>
+  );
+}
+`;
+  await withProject({ "src/App.jsx": app }, async (dir) => {
+    const result = await tryBuiltinCodemods({
+      cwd: dir,
+      packageName: "react-router-dom",
+      fromVersion: "5.3.4",
+      toVersion: "6.28.0",
+      failureOutput: "SyntaxError: <Switch> is not exported from react-router-dom",
+      candidateFiles: ["src/App.jsx"],
+    });
+
+    assert.equal(result.applied, true);
+    const fixed = await readFile(join(dir, "src/App.jsx"), "utf8");
+    assert.ok(fixed.includes("<Routes>"));
+    assert.ok(fixed.includes("</Routes>"));
+    assert.ok(!fixed.includes("<Switch>"));
+    assert.ok(!fixed.includes("</Switch>"));
+  });
+});
+
+test("codemods: a bump skipping a major (react-dom 18→20) does NOT apply the 18→19 codemod", async () => {
+  await withProject({ "src/index.tsx": reactApp }, async (dir) => {
+    const result = await tryBuiltinCodemods({
+      cwd: dir,
+      packageName: "react-dom",
+      fromVersion: "18.3.1",
+      toVersion: "20.0.0",
+      failureOutput: "TypeError: ReactDOM.render is not a function",
+      candidateFiles: ["src/index.tsx"],
+    });
+
+    assert.equal(result.applied, false);
+    const unchanged = await readFile(join(dir, "src/index.tsx"), "utf8");
+    assert.equal(unchanged, reactApp);
+  });
+});
+
+test("buildContextKey: a content fingerprint distinguishes same-error-different-code", () => {
+  const base = buildContextKey("react", "18.0.0", "19.0.0", "TypeError: x is not a function");
+  const withA = buildContextKey("react", "18.0.0", "19.0.0", "TypeError: x is not a function", "fp-aaa");
+  const withB = buildContextKey("react", "18.0.0", "19.0.0", "TypeError: x is not a function", "fp-bbb");
+  assert.notEqual(withA, withB);
+  assert.notEqual(base, withA);
+  // Same fingerprint → same key (stable replay for the same code)
+  assert.equal(withA, buildContextKey("react", "18.0.0", "19.0.0", "TypeError: x is not a function", "fp-aaa"));
+});

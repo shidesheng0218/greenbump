@@ -275,6 +275,16 @@ const BUILTIN_CODEMODS: Codemod[] = [
   {
     package: "react-router-dom",
     versionRange: { fromMajor: 5, toMajor: 6 },
+    errorMatch: "Switch.*(is not exported|not a function)|<Switch>",
+    description: "</Switch> → </Routes> (React Router 6)",
+    transform: {
+      find: "</Switch>",
+      replace: "</Routes>",
+    },
+  },
+  {
+    package: "react-router-dom",
+    versionRange: { fromMajor: 5, toMajor: 6 },
     errorMatch: "useHistory.*(is not exported|not a function)",
     description: "useHistory() → useNavigate() (React Router 6)",
     transform: {
@@ -407,7 +417,8 @@ export async function tryBuiltinCodemods(ctx: PatternFixContext): Promise<Tiered
       if (rf !== undefined && fromMajor !== rf) return false;
       // toMajor omitted → codemod targets exactly the next major (rf+1).
       // toMajor set → codemod applies to any bump landing at or below it.
-      if (rt !== undefined && toMajor > rt) return false;
+      const upper = rt ?? (rf !== undefined ? rf + 1 : undefined);
+      if (upper !== undefined && toMajor > upper) return false;
     }
     return true;
   });
@@ -509,8 +520,13 @@ export async function tryBuiltinCodemods(ctx: PatternFixContext): Promise<Tiered
 }
 
 /**
- * Level 2: try learned patterns from the local cache (patterns that worked
- * in previous runs of greenbump, either here or on other projects).
+ * Level 2: try learned patterns from the local cache.
+ *
+ * NOTE: nothing in the codebase currently WRITES FixPatternEntry records —
+ * `learnFromSuccessfulFix` only populates the tier-3 full-fix cache. This
+ * tier therefore only ever replays hand-seeded entries. It is kept as an
+ * extension point, but do not expect it to hit in practice (and the README
+ * says so).
  */
 export async function tryLearnedPatterns(ctx: PatternFixContext): Promise<TieredFixResult> {
   const cache = getCache();
@@ -623,8 +639,9 @@ export async function tryCachedLlmFix(
 }
 
 /**
- * Record a successful LLM fix as a learned pattern + full cached fix,
- * so future identical failures cost $0.
+ * Record a successful LLM fix in the tier-3 cache so future identical
+ * failures cost $0. (Despite the name, this does NOT distil a tier-2
+ * "learned pattern" — it only stores the full post-fix file contents.)
  */
 export async function learnFromSuccessfulFix(
   ctx: PatternFixContext,
@@ -654,12 +671,17 @@ export async function learnFromSuccessfulFix(
   }
 }
 
-/** Build the cache context key for a failure — stable across projects. */
+/** Build the cache context key for a failure.
+ * `contentFingerprint` (hash of the candidate files' current contents)
+ * binds the key to the actual code being fixed — without it, two projects
+ * with the same error text but different code would collide, and the cached
+ * whole-file replay from project A would overwrite project B's files. */
 export function buildContextKey(
   packageName: string,
   from: string,
   to: string,
   failureOutput: string,
+  contentFingerprint?: string,
 ): string {
   // Normalize the failure output: strip paths, line numbers, timings —
   // keep only the error essence so identical errors across projects collide.
@@ -671,7 +693,7 @@ export function buildContextKey(
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 2000);
-  return `${packageName}@${from}->${to}::${normalized}`;
+  return `${packageName}@${from}->${to}::${normalized}${contentFingerprint ? `::${contentFingerprint}` : ""}`;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────

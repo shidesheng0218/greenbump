@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
 import { exec } from "../exec.js";
+import { fetchWithTimeout } from "./http.js";
 import { pathExists, type EcosystemAdapter, type Outdated } from "./types.js";
 
 const REQUIRE_LINE = /^([A-Za-z0-9_-]+)\/([^@\s]+)/;
@@ -49,7 +50,7 @@ function compareSemver(a: string, b: string): number {
 
 async function latestOnConanCenter(name: string): Promise<string | null> {
   try {
-    const res = await fetch(`https://center2.conan.io/v1/conans/search?q=${encodeURIComponent(name)}`);
+    const res = await fetchWithTimeout(`https://center2.conan.io/v1/conans/search?q=${encodeURIComponent(name)}`);
     if (!res.ok) return null;
     const data = (await res.json()) as { results?: string[] };
     const versions = (data.results ?? [])
