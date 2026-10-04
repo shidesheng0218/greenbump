@@ -1,0 +1,10 @@
+{
+  "name": "bench-react-router-switch",
+  "private": true,
+  "scripts": { "test": "node test.js" },
+  "dependencies": {
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-router-dom": "5.3.4"
+  }
+}

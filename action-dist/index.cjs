@@ -14359,7 +14359,7 @@ ${lanes.join("\n")}
         getCurrentDirectory,
         getAccessibleSortedChildDirectories,
         fileSystemEntryExists,
-        realpath,
+        realpath: realpath2,
         setTimeout: setTimeout2,
         clearTimeout: clearTimeout2
       }) {
@@ -14535,7 +14535,7 @@ ${lanes.join("\n")}
         function updateChildWatches(parentDir, parentDirPath, options) {
           const parentWatcher = cache.get(parentDirPath);
           if (!parentWatcher) return false;
-          const target = normalizePath2(realpath(parentDir));
+          const target = normalizePath2(realpath2(parentDir));
           let hasChanges;
           let newChildWatches;
           if (filePathComparer(target, parentDir) === 0) {
@@ -14546,7 +14546,7 @@ ${lanes.join("\n")}
                 /* Directory */
               ) ? mapDefined(getAccessibleSortedChildDirectories(parentDir), (child) => {
                 const childFullName = getNormalizedAbsolutePath(child, parentDir);
-                return !isIgnoredPath(childFullName, options) && filePathComparer(childFullName, normalizePath2(realpath(childFullName))) === 0 ? childFullName : void 0;
+                return !isIgnoredPath(childFullName, options) && filePathComparer(childFullName, normalizePath2(realpath2(childFullName))) === 0 ? childFullName : void 0;
               }) : emptyArray,
               parentWatcher.childWatches,
               (child, childWatcher) => filePathComparer(child, childWatcher.dirName),
@@ -14630,7 +14630,7 @@ ${lanes.join("\n")}
         getCurrentDirectory,
         fsSupportsRecursiveFsWatch,
         getAccessibleSortedChildDirectories,
-        realpath,
+        realpath: realpath2,
         tscWatchFile,
         useNonPollingWatchers,
         tscWatchDirectory,
@@ -14770,7 +14770,7 @@ ${lanes.join("\n")}
               fileSystemEntryExists,
               getAccessibleSortedChildDirectories,
               watchDirectory: nonRecursiveWatchDirectory,
-              realpath,
+              realpath: realpath2,
               setTimeout: setTimeout2,
               clearTimeout: clearTimeout2
             });
@@ -15009,7 +15009,7 @@ ${lanes.join("\n")}
             // (ref: https://github.com/nodejs/node/pull/2649 and https://github.com/Microsoft/TypeScript/issues/4643)
             fsSupportsRecursiveFsWatch,
             getAccessibleSortedChildDirectories: (path2) => getAccessibleFileSystemEntries(path2).directories,
-            realpath,
+            realpath: realpath2,
             tscWatchFile: process.env.TSC_WATCHFILE,
             useNonPollingWatchers: !!process.env.TSC_NONPOLLING_WATCHER,
             tscWatchDirectory: process.env.TSC_WATCHDIRECTORY,
@@ -15083,7 +15083,7 @@ ${lanes.join("\n")}
             enableCPUProfiler,
             disableCPUProfiler,
             cpuProfilingEnabled: () => !!activeSession || contains(process.execArgv, "--cpu-prof") || contains(process.execArgv, "--prof"),
-            realpath,
+            realpath: realpath2,
             debugMode: !!process.env.NODE_INSPECTOR_IPC || !!process.env.VSCODE_INSPECTOR_OPTIONS || some(process.execArgv, (arg) => /^--(?:inspect|debug)(?:-brk)?(?:=\d+)?$/i.test(arg)) || !!process.recordreplay,
             tryEnableSourceMapsForHost() {
               try {
@@ -15315,7 +15315,7 @@ ${lanes.join("\n")}
             }
           }
           function readDirectory(path2, extensions, excludes, includes, depth) {
-            return matchFiles(path2, extensions, excludes, includes, useCaseSensitiveFileNames2, process.cwd(), depth, getAccessibleFileSystemEntries, realpath);
+            return matchFiles(path2, extensions, excludes, includes, useCaseSensitiveFileNames2, process.cwd(), depth, getAccessibleFileSystemEntries, realpath2);
           }
           function fileSystemEntryExists(path2, entryKind) {
             const stat6 = statSync2(path2);
@@ -15351,7 +15351,7 @@ ${lanes.join("\n")}
           function fsRealPathHandlingLongPath(path2) {
             return path2.length < 260 ? _fs.realpathSync.native(path2) : _fs.realpathSync(path2);
           }
-          function realpath(path2) {
+          function realpath2(path2) {
             try {
               return fsRealpath(path2);
             } catch {
@@ -29430,7 +29430,7 @@ ${lanes.join("\n")}
       function getRegexFromPattern(pattern, useCaseSensitiveFileNames2) {
         return new RegExp(pattern, useCaseSensitiveFileNames2 ? "" : "i");
       }
-      function matchFiles(path2, extensions, excludes, includes, useCaseSensitiveFileNames2, currentDirectory, depth, getFileSystemEntries, realpath) {
+      function matchFiles(path2, extensions, excludes, includes, useCaseSensitiveFileNames2, currentDirectory, depth, getFileSystemEntries, realpath2) {
         path2 = normalizePath2(path2);
         currentDirectory = normalizePath2(currentDirectory);
         const patterns = getFileMatcherPatterns(path2, excludes, includes, useCaseSensitiveFileNames2, currentDirectory);
@@ -29445,7 +29445,7 @@ ${lanes.join("\n")}
         }
         return flatten(results);
         function visitDirectory(path22, absolutePath, depth2) {
-          const canonicalPath = toCanonical(realpath(absolutePath));
+          const canonicalPath = toCanonical(realpath2(absolutePath));
           if (visited.has(canonicalPath)) return;
           visited.set(canonicalPath, true);
           const { files, directories } = getFileSystemEntries(path22);
@@ -141167,7 +141167,7 @@ ${lanes.join("\n")}
           addOrDeleteFileOrDirectory,
           addOrDeleteFile,
           clearCache,
-          realpath: host.realpath && realpath
+          realpath: host.realpath && realpath2
         };
         function toPath3(fileName) {
           return toPath(fileName, currentDirectory, getCanonicalFileName);
@@ -141278,7 +141278,7 @@ ${lanes.join("\n")}
           const rootResult = tryReadDirectory2(rootDir, rootDirPath);
           let rootSymLinkResult;
           if (rootResult !== void 0) {
-            return matchFiles(rootDir, extensions, excludes, includes, useCaseSensitiveFileNames2, currentDirectory, depth, getFileSystemEntries, realpath);
+            return matchFiles(rootDir, extensions, excludes, includes, useCaseSensitiveFileNames2, currentDirectory, depth, getFileSystemEntries, realpath2);
           }
           return host.readDirectory(rootDir, extensions, excludes, includes, depth);
           function getFileSystemEntries(dir) {
@@ -141307,7 +141307,7 @@ ${lanes.join("\n")}
             return result;
           }
         }
-        function realpath(s2) {
+        function realpath2(s2) {
           return host.realpath ? host.realpath(s2) : s2;
         }
         function clearFirstAncestorEntry(fileOrDirectoryPath) {
@@ -141762,7 +141762,7 @@ ${lanes.join("\n")}
           return getDirectoryPath(normalizePath2(system.getExecutingFilePath()));
         }
         const newLine = getNewLineCharacter(options);
-        const realpath = system.realpath && ((path2) => system.realpath(path2));
+        const realpath2 = system.realpath && ((path2) => system.realpath(path2));
         const compilerHost = {
           getSourceFile: createGetSourceFile((fileName) => compilerHost.readFile(fileName), setParentNodes),
           getDefaultLibLocation,
@@ -141782,7 +141782,7 @@ ${lanes.join("\n")}
           directoryExists: (directoryName) => system.directoryExists(directoryName),
           getEnvironmentVariable: (name) => system.getEnvironmentVariable ? system.getEnvironmentVariable(name) : "",
           getDirectories: (path2) => system.getDirectories(path2),
-          realpath,
+          realpath: realpath2,
           readDirectory: (path2, extensions, include, exclude, depth) => system.readDirectory(path2, extensions, include, exclude, depth),
           createDirectory: (d2) => system.createDirectory(d2),
           createHash: maybeBind(system, system.createHash)
@@ -205441,9 +205441,9 @@ ${options.prefix}` : "\n" : options.prefix
             if (this.host.realpath) {
               Debug.assert(!!this.containingProjects.length);
               const project = this.containingProjects[0];
-              const realpath = this.host.realpath(this.path);
-              if (realpath) {
-                this.realpath = project.toPath(realpath);
+              const realpath2 = this.host.realpath(this.path);
+              if (realpath2) {
+                this.realpath = project.toPath(realpath2);
                 if (this.realpath !== this.path) {
                   project.projectService.realpathToScriptInfos.add(this.realpath, this);
                 }
@@ -209465,9 +209465,9 @@ ${options.prefix}` : "\n" : options.prefix
           this.filenameToScriptInfo.delete(info2.path);
           this.filenameToScriptInfoVersion.set(info2.path, info2.textStorage.version);
           this.stopWatchingScriptInfo(info2);
-          const realpath = info2.getRealpathIfDifferent();
-          if (realpath) {
-            this.realpathToScriptInfos.remove(realpath, info2);
+          const realpath2 = info2.getRealpathIfDifferent();
+          if (realpath2) {
+            this.realpathToScriptInfos.remove(realpath2, info2);
           }
           info2.closeSourceMapFileWatcher();
         }
@@ -210356,9 +210356,9 @@ All files are: ${JSON.stringify(names)}`,
         getSymlinkedProjects(info2) {
           let projects;
           if (this.realpathToScriptInfos) {
-            const realpath = info2.getRealpathIfDifferent();
-            if (realpath) {
-              forEach(this.realpathToScriptInfos.get(realpath), combineProjects);
+            const realpath2 = info2.getRealpathIfDifferent();
+            if (realpath2) {
+              forEach(this.realpathToScriptInfos.get(realpath2), combineProjects);
             }
             forEach(this.realpathToScriptInfos.get(info2.path), combineProjects);
           }
@@ -219348,6 +219348,7 @@ function trimFailureOutput(output) {
 }
 async function extractCandidateFiles(failureOutput, cwd) {
   const found = /* @__PURE__ */ new Set();
+  const cwdReal = await (0, import_promises13.realpath)(cwd).catch(() => cwd);
   const patterns = [
     /([^\s():]+\.(?:ts|tsx|js|jsx|mjs|cjs|vue|svelte)):\d+:\d+/g,
     /at\s+(?:\w+\s+)?\(([^():\s]+\.(?:ts|tsx|js|jsx|mjs|cjs)):\d+:\d+\)/g,
@@ -219357,7 +219358,7 @@ async function extractCandidateFiles(failureOutput, cwd) {
   for (const pattern of patterns) {
     let m2;
     while ((m2 = pattern.exec(failureOutput)) !== null) {
-      const p2 = normalizePath(m2[1], cwd);
+      const p2 = normalizePath(m2[1], cwd, cwdReal);
       if (p2)
         found.add(p2);
     }
@@ -219413,10 +219414,13 @@ function buildCandidateHint(candidateFiles, relatedTests) {
   }
   return parts.join("\n");
 }
-function normalizePath(p2, cwd) {
+function normalizePath(p2, cwd, cwdReal) {
   let cleaned = p2.replace(/^file:\/\//, "").replace(/\\/g, "/");
-  if (cleaned.startsWith(cwd)) {
-    cleaned = (0, import_node_path23.relative)(cwd, cleaned);
+  for (const root of [cwd, cwdReal]) {
+    if (root && cleaned.startsWith(root + "/")) {
+      cleaned = (0, import_node_path23.relative)(root, cleaned);
+      break;
+    }
   }
   if (cleaned.startsWith("/"))
     return null;

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, writeFile, rm, mkdir } from "node:fs/promises";
+import { mkdtemp, writeFile, rm, mkdir, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -80,6 +80,31 @@ test("extractCandidateFiles: only returns files that exist", async () => {
     assert.deepEqual(files, ["src/real.tsx"]);
   } finally {
     await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("extractCandidateFiles: finds files when the stack trace carries the realpath of a symlinked cwd", async () => {
+  // e.g. macOS /var → /private/var: the project may be opened through the
+  // symlink while Node stack frames resolve it. Both spellings are the same
+  // project — extraction must not come back empty.
+  const realBase = await mkdtemp(join(tmpdir(), "greenbump-ctx-real-"));
+  const linkBase = join(tmpdir(), `greenbump-ctx-link-${process.pid}`);
+  await rm(linkBase, { force: true, recursive: true });
+  await symlink(realBase, linkBase);
+  await mkdir(join(realBase, "src"));
+  await writeFile(join(realBase, "src", "routes.js"), "content", "utf8");
+  try {
+    // Node stack frames carry the fully resolved path…
+    const { realpath } = await import("node:fs/promises");
+    const projectReal = await realpath(linkBase);
+    const files = await extractCandidateFiles(
+      `TypeError: app.del is not a function\n    at registerRoutes (${projectReal}/src/routes.js:2:7)`,
+      linkBase, // …while the project was opened through the symlink
+    );
+    assert.deepEqual(files, ["src/routes.js"]);
+  } finally {
+    await rm(linkBase, { force: true, recursive: true });
+    await rm(realBase, { recursive: true, force: true });
   }
 });
 

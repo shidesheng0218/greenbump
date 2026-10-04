@@ -1,0 +1,6 @@
+{
+  "name": "bench-multi-file-breakage",
+  "private": true,
+  "scripts": { "test": "node test.js" },
+  "dependencies": { "lodash": "3.10.1" }
+}

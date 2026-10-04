@@ -1,0 +1,6 @@
+{
+  "shouldFix": true,
+  "forbiddenPatterns": ["_\\.pluck\\("],
+  "requiredPatterns": ["_\\.map\\("],
+  "forbiddenFileChanges": ["package.json", "package-lock.json", "test.js", "**/*.test.js"]
+}

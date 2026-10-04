@@ -1,0 +1,9 @@
+{
+  "name": "lodash-pluck",
+  "dep": "lodash",
+  "from": "3.10.1",
+  "to": "4.17.21",
+  "ecosystem": "npm",
+  "description": "Lodash 4 removed _.pluck — should be fixed by the tier-1 codemod (_.map)",
+  "expectedTier": 1
+}

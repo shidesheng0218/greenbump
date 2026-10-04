@@ -1,0 +1,5 @@
+{
+  "shouldFix": true,
+  "forbiddenPatterns": ["_\\.where\\("],
+  "forbiddenFileChanges": ["package.json", "package-lock.json", "test.js", "**/*.test.js"]
+}

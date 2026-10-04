@@ -25,6 +25,8 @@
     "build:action": "npm run build && esbuild dist/action/main.js --bundle --platform=node --target=node24 --format=cjs --outfile=action-dist/index.cjs",
     "dev": "tsx src/cli.ts",
     "test": "npm run build && cd dist && node --test",
+    "bench": "npm run build && node dist/benchmarks/run.js",
+    "bench:no-llm": "npm run build && node dist/benchmarks/run.js --no-llm",
     "prepublishOnly": "npm run build"
   },
   "keywords": [

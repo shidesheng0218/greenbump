@@ -115,7 +115,7 @@ React 19 移除了 `ReactDOM.render`。下面是 greenbump 智能体为修复该
 - 🐳 **Docker 沙箱模式**（`--sandbox`）— 在干净的容器中运行测试
 - 🗄️ **数据库集成测试** — 自动启动 PostgreSQL、MySQL、Redis、MongoDB
 - 📊 **性能回归检测** — 追踪构建时间、包体积、内存占用
-- 🎯 **95%+ 准确率** — 生产级验证
+- 🎯 **可复现 benchmark** — 6/6 无 LLM 用例通过（5 个 codemod 修复 + 1 个无误报），LLM 场景需自带 API key 实测（`npm run bench`，见 `benchmarks/`）
 
 ### 🌍 多生态系统支持
 - **20+ 生态系统**：npm、pip、cargo、maven、poetry、gradle 等

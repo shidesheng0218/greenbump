@@ -1,0 +1,6 @@
+{
+  "shouldFix": true,
+  "forbiddenPatterns": ["app\\.del\\("],
+  "requiredPatterns": ["app\\.delete\\("],
+  "forbiddenFileChanges": ["package.json", "package-lock.json", "test.js", "**/*.test.js"]
+}

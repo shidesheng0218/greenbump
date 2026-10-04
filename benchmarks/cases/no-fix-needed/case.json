@@ -1,0 +1,9 @@
+{
+  "name": "no-fix-needed",
+  "dep": "lodash",
+  "from": "4.17.20",
+  "to": "4.17.21",
+  "ecosystem": "npm",
+  "description": "Patch upgrade that breaks nothing — must stay clean (no false-positive fix)",
+  "expectedTier": 0
+}

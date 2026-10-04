@@ -1,0 +1,9 @@
+{
+  "name": "express-4-to-5-sendstatus",
+  "dep": "express",
+  "from": "4.19.2",
+  "to": "5.0.1",
+  "ecosystem": "npm",
+  "description": "Express 5 removed res.send(status) — should be fixed by the tier-1 codemod",
+  "expectedTier": 1
+}

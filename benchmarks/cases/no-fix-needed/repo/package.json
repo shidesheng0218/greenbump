@@ -1,0 +1,6 @@
+{
+  "name": "bench-no-fix-needed",
+  "private": true,
+  "scripts": { "test": "node test.js" },
+  "dependencies": { "lodash": "4.17.20" }
+}

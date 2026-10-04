@@ -1,4 +1,4 @@
-import { readFile, stat } from "node:fs/promises";
+import { readFile, stat, realpath } from "node:fs/promises";
 import { join, relative } from "node:path";
 
 /**
@@ -67,6 +67,10 @@ export async function extractCandidateFiles(
   cwd: string,
 ): Promise<string[]> {
   const found = new Set<string>();
+  // Stack frames carry realpaths (symlinks resolved), while cwd may go
+  // through a symlink (e.g. macOS /var → /private/var). Both spellings are
+  // the same project — match paths against either root.
+  const cwdReal = await realpath(cwd).catch(() => cwd);
 
   // Match path:line:col references (TS/JS errors), stack frames, webpack errors
   const patterns = [
@@ -79,7 +83,7 @@ export async function extractCandidateFiles(
   for (const pattern of patterns) {
     let m;
     while ((m = pattern.exec(failureOutput)) !== null) {
-      const p = normalizePath(m[1], cwd);
+      const p = normalizePath(m[1], cwd, cwdReal);
       if (p) found.add(p);
     }
   }
@@ -143,14 +147,19 @@ export function buildCandidateHint(
   return parts.join("\n");
 }
 
-function normalizePath(p: string, cwd: string): string | null {
+function normalizePath(p: string, cwd: string, cwdReal?: string): string | null {
   // Strip common prefixes to get a project-relative path
   let cleaned = p
     .replace(/^file:\/\//, "")
     .replace(/\\/g, "/");
 
-  if (cleaned.startsWith(cwd)) {
-    cleaned = relative(cwd, cleaned);
+  // Accept the path under either the cwd spelling or its realpath — both
+  // refer to the same directory when cwd passes through a symlink.
+  for (const root of [cwd, cwdReal]) {
+    if (root && cleaned.startsWith(root + "/")) {
+      cleaned = relative(root, cleaned);
+      break;
+    }
   }
   // Drop absolute paths that aren't under cwd
   if (cleaned.startsWith("/")) return null;

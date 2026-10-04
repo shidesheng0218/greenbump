@@ -1,0 +1,9 @@
+{
+  "name": "zod-3-to-4-issues",
+  "dep": "zod",
+  "from": "3.23.8",
+  "to": "4.0.5",
+  "ecosystem": "npm",
+  "description": "Zod 4 renamed error.errors to error.issues — should be fixed by the tier-1 codemod",
+  "expectedTier": 1
+}

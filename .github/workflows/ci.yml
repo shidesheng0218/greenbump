@@ -69,6 +69,19 @@ jobs:
       - name: Test greenbump --list-ecosystems
         run: node dist/cli.js --list-ecosystems | grep -q "${{ matrix.ecosystem.name }}"
 
+  benchmark:
+    name: Benchmark (no-LLM cases)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: node dist/benchmarks/run.js --no-llm
+
   action-bundle:
     name: Verify action bundle is fresh
     runs-on: ubuntu-latest

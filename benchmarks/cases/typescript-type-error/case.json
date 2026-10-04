@@ -1,0 +1,9 @@
+{
+  "name": "typescript-type-error",
+  "dep": "@types/express",
+  "from": "4.17.21",
+  "to": "5.0.0",
+  "ecosystem": "npm",
+  "description": "@types/express 5 removes app.del from the types — tsc fails, needs the LLM (no codemod matches a TS2339)",
+  "expectedTier": 4
+}

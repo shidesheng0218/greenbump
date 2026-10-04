@@ -1,0 +1,9 @@
+{
+  "name": "multi-file-breakage",
+  "dep": "lodash",
+  "from": "3.10.1",
+  "to": "4.17.21",
+  "ecosystem": "npm",
+  "description": "Lodash 4 removed _.where, used across 3 files — no codemod exists, the LLM must fix them all",
+  "expectedTier": 4
+}

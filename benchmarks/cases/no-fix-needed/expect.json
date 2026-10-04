@@ -1,0 +1,5 @@
+{
+  "shouldFix": true,
+  "neededFix": false,
+  "forbiddenFileChanges": ["package.json", "package-lock.json", "test.js", "**/*.test.js"]
+}
