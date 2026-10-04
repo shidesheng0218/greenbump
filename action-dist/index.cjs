@@ -219928,6 +219928,37 @@ Fix the source code so build and tests pass. Call run_check to verify before fin
   let budgetExceeded = false;
   let round = 0;
   const llmEditedFiles = /* @__PURE__ */ new Set();
+  const seenReports = /* @__PURE__ */ new Set();
+  let enhancedRounds = 0;
+  let enhancedStuck = false;
+  async function enhancedFeedback(currentRound) {
+    if (!opts.verifyEnhanced)
+      return "stop";
+    const v2 = await opts.verifyEnhanced(opts.cwd, [...llmEditedFiles]);
+    if (!v2.hasIssues)
+      return "stop";
+    const hash = (0, import_node_crypto2.createHash)("sha256").update(v2.report).digest("hex");
+    if (seenReports.has(hash)) {
+      enhancedStuck = true;
+      log(`round ${currentRound}: enhanced verification reports the identical problem again (${v2.summary}) \u2014 agent can't fix it, flagging for review`);
+      return "stop";
+    }
+    if (currentRound >= opts.maxRounds) {
+      return "stop";
+    }
+    seenReports.add(hash);
+    enhancedRounds++;
+    log(`round ${currentRound}: enhanced verification \u2014 ${v2.summary}; feeding back for another round`);
+    messages.push({
+      role: "user",
+      text: `Build and tests pass, but additional verification found problems that must be fixed:
+
+${v2.report}
+
+Fix these without breaking the build/tests.`
+    });
+    return "continue";
+  }
   for (round = 1; round <= opts.maxRounds; round++) {
     const remaining = opts.maxRounds - round + 1;
     const system = remaining <= 2 ? `${SYSTEM}
@@ -219944,6 +219975,9 @@ You have ${remaining} round(s) left. Wrap up and verify now.` : SYSTEM;
     }
     if (turn.toolCalls.length === 0) {
       const r2 = await runChecks(pm, opts.cwd, checkOverrides);
+      if (r2.ok && await enhancedFeedback(round) === "continue") {
+        continue;
+      }
       fixed = r2.ok;
       log(`round ${round}: agent stopped, final check ${r2.ok ? "PASS" : "FAIL"}`);
       break;
@@ -219970,6 +220004,10 @@ You have ${remaining} round(s) left. Wrap up and verify now.` : SYSTEM;
     }
     messages.push({ role: "tool", results });
     if (fixed) {
+      if (await enhancedFeedback(round) === "continue") {
+        fixed = false;
+        continue;
+      }
       log(`round ${round}: check passed \u2014 fixed`);
       break;
     }
@@ -219996,7 +220034,9 @@ You have ${remaining} round(s) left. Wrap up and verify now.` : SYSTEM;
     usage,
     editedFiles: [...llmEditedFiles],
     budgetExceeded,
-    fixedByTier: fixed ? FixTier.LLM : void 0
+    fixedByTier: fixed ? FixTier.LLM : void 0,
+    enhancedRounds,
+    enhancedStuck: enhancedStuck || void 0
   };
 }
 function tierResult(fixed, editedFiles, tier, cacheHit = false) {
@@ -220008,7 +220048,8 @@ function tierResult(fixed, editedFiles, tier, cacheHit = false) {
     editedFiles,
     budgetExceeded: false,
     fixedByTier: tier,
-    cacheHit
+    cacheHit,
+    enhancedRounds: 0
   };
 }
 async function snapshotFiles(cwd, files) {
@@ -232534,6 +232575,28 @@ function computeNeedsReview(input) {
     return false;
   return input.fixed && input.testFilesTouched.length > 0;
 }
+async function runEnhancedVerification(cwd, editedFiles) {
+  const problems = [];
+  const staticResults = await runStaticAnalysis(cwd, { strictLint: false });
+  const typeErrors = staticResults.filter((r2) => r2.stage === "types" && !r2.passed).flatMap((r2) => r2.warnings || []);
+  if (typeErrors.length > 0) {
+    problems.push(`TypeScript type errors (${typeErrors.length}):
+` + typeErrors.slice(0, 10).map((w2) => `  - ${w2}`).join("\n"));
+  }
+  if (editedFiles.length > 0) {
+    const ast = await analyzeApiChanges(cwd, editedFiles, (p2) => readFromGitHead(cwd, p2));
+    const critical = ast.changes.filter((c2) => c2.kind === "export-removed" || c2.kind === "signature-changed");
+    if (critical.length > 0) {
+      problems.push(`Public API surface changed (downstream code may break):
+` + critical.slice(0, 10).map((c2) => `  - [${c2.file}] ${c2.detail}`).join("\n"));
+    }
+  }
+  return {
+    hasIssues: problems.length > 0,
+    report: problems.join("\n\n"),
+    summary: problems.length > 0 ? `${problems.length} issue category(ies)` : "clean"
+  };
+}
 async function run(opts) {
   const log = opts.onLog ?? (() => {
   });
@@ -232664,7 +232727,7 @@ ${up.output}`);
   let changelog = await fetchChangelog(target.name, from, to, { cache: !opts.noCache });
   if (changelog)
     log(`found changelog/release notes for ${target.name}`);
-  const provider = createProvider({
+  const provider = opts.fixProvider ?? createProvider({
     provider: opts.provider,
     model: opts.model,
     baseURL: opts.baseURL,
@@ -232708,7 +232771,8 @@ ${changelog.slice(0, 2e3)}`;
     noFreeTiers: opts.noFreeTiers,
     noCache: opts.noCache,
     onFixSuggestion: opts.interactive ? opts.onFixSuggestion : void 0,
-    onLlmCall: llmCallSink
+    onLlmCall: llmCallSink,
+    verifyEnhanced: opts.enhancedLoop === false ? void 0 : (c2, files) => runEnhancedVerification(c2, files)
   });
   summary.fixed = fix.fixed;
   summary.rounds = fix.rounds;
@@ -232716,6 +232780,11 @@ ${changelog.slice(0, 2e3)}`;
   summary.editedFiles = fix.editedFiles;
   summary.fixedByTier = fix.fixedByTier;
   summary.cacheHit = fix.cacheHit;
+  summary.enhancedRounds = fix.enhancedRounds || void 0;
+  if (fix.enhancedStuck) {
+    log("\u26A0\uFE0F  verifier keeps reporting the same problem \u2014 the agent couldn't fix it, review needed");
+    summary.needsReview = true;
+  }
   if (fix.fixedByTier && fix.fixedByTier < 4) {
     const tierNames = ["", "codemod", "learned pattern", "cached fix"];
     log(`fixed by tier ${fix.fixedByTier} (${tierNames[fix.fixedByTier]}) \u2014 0 tokens spent`);

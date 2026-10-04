@@ -58,6 +58,7 @@ program
   .option("--cache-stats", "show cache statistics and exit")
   .option("--cache-clear [category]", "clear the cache (changelogs, llm-fixes, patterns) and exit")
   .option("--no-ast-analysis", "disable post-fix API surface analysis")
+  .option("--no-enhanced-loop", "don't feed verifier findings (type errors, API surface) back into the fix loop — useful on very slow projects")
   .option("--worktree", "run upgrade in an isolated temporary git worktree to keep the primary directory clean")
   .option("--stats [days]", "show usage/cost-savings report for the last N days (default 30) and exit")
   .option("--json", "with --stats, print the raw JSON summary instead of the formatted report")
@@ -203,6 +204,7 @@ program
       interactive: opts.interactive,
       onFixSuggestion: interactive?.handler,
       astAnalysis: opts.astAnalysis !== false,
+      enhancedLoop: opts.enhancedLoop !== false,
       worktree: opts.worktree,
     };
 

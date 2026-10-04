@@ -35,6 +35,20 @@ export interface FixResult {
   fixedByTier?: number;
   /** true when a cache hit saved an LLM call */
   cacheHit?: boolean;
+  /** extra rounds consumed by enhanced-verification feedback (0 = first pass was clean) */
+  enhancedRounds: number;
+  /** true when the verifier kept reporting the identical problem — the agent provably can't fix it */
+  enhancedStuck?: boolean;
+}
+
+/** Outcome of the extra verification that runs after build/tests pass. */
+export interface EnhancedVerification {
+  /** true = actionable problems remain and the agent should take another round */
+  hasIssues: boolean;
+  /** human-readable problem description, fed back into the next round's prompt */
+  report: string;
+  /** one-line summary for logs */
+  summary: string;
 }
 
 export interface FixDep {
@@ -96,6 +110,13 @@ export interface FixOptions {
   onFixSuggestion?: (suggestion: FixSuggestion) => Promise<FixDecision>;
   /** sink for per-call cost records (feature/model/tokens/latency/outcome) */
   onLlmCall?: LlmCallSink;
+  /**
+   * Extra verification run after build/tests pass (e.g. TypeScript type check,
+   * API-surface analysis). When it returns hasIssues=true, the report is fed
+   * back into the conversation and the loop takes another round instead of
+   * exiting — closing the gap where verifiers only flagged problems for humans.
+   */
+  verifyEnhanced?: (cwd: string, editedFiles: string[]) => Promise<EnhancedVerification>;
 }
 
 function buildSystemPrompt(pm: PackageManager, deps?: FixDep[]): string {
@@ -631,6 +652,43 @@ Fix the source code so build and tests pass. Call run_check to verify before fin
   let round = 0;
   const llmEditedFiles = new Set<string>();
 
+  // ── Enhanced verification feedback ─────────────────────────────────────
+  // Verifiers that run after build/tests pass (type check, API surface) used
+  // to be one-way notifications to the user. Now their actionable findings go
+  // back into the conversation so the agent can fix them itself. Two guards
+  // keep this bounded: the loop still lives inside maxRounds/maxTokens, and an
+  // identical report twice means the agent provably can't fix it — stop.
+  const seenReports = new Set<string>();
+  let enhancedRounds = 0;
+  let enhancedStuck = false;
+
+  /** Returns "continue" when verifier findings were fed back for another round. */
+  async function enhancedFeedback(currentRound: number): Promise<"continue" | "stop"> {
+    if (!opts.verifyEnhanced) return "stop";
+    const v = await opts.verifyEnhanced(opts.cwd, [...llmEditedFiles]);
+    if (!v.hasIssues) return "stop";
+    const hash = createHash("sha256").update(v.report).digest("hex");
+    if (seenReports.has(hash)) {
+      enhancedStuck = true;
+      log(
+        `round ${currentRound}: enhanced verification reports the identical problem again (${v.summary}) — agent can't fix it, flagging for review`,
+      );
+      return "stop";
+    }
+    if (currentRound >= opts.maxRounds) {
+      // No rounds left — end here; the post-loop checks will flag the review.
+      return "stop";
+    }
+    seenReports.add(hash);
+    enhancedRounds++;
+    log(`round ${currentRound}: enhanced verification — ${v.summary}; feeding back for another round`);
+    messages.push({
+      role: "user",
+      text: `Build and tests pass, but additional verification found problems that must be fixed:\n\n${v.report}\n\nFix these without breaking the build/tests.`,
+    });
+    return "continue";
+  }
+
   for (round = 1; round <= opts.maxRounds; round++) {
     const remaining = opts.maxRounds - round + 1;
     const system = remaining <= 2 ? `${SYSTEM}\n\nYou have ${remaining} round(s) left. Wrap up and verify now.` : SYSTEM;
@@ -652,6 +710,9 @@ Fix the source code so build and tests pass. Call run_check to verify before fin
     if (turn.toolCalls.length === 0) {
       // Model stopped without a tool call — verify once and finish.
       const r = await runChecks(pm, opts.cwd, checkOverrides);
+      if (r.ok && (await enhancedFeedback(round)) === "continue") {
+        continue;
+      }
       fixed = r.ok;
       log(`round ${round}: agent stopped, final check ${r.ok ? "PASS" : "FAIL"}`);
       break;
@@ -680,6 +741,10 @@ Fix the source code so build and tests pass. Call run_check to verify before fin
     messages.push({ role: "tool", results });
 
     if (fixed) {
+      if ((await enhancedFeedback(round)) === "continue") {
+        fixed = false;
+        continue;
+      }
       log(`round ${round}: check passed — fixed`);
       break;
     }
@@ -714,6 +779,8 @@ Fix the source code so build and tests pass. Call run_check to verify before fin
     editedFiles: [...llmEditedFiles],
     budgetExceeded,
     fixedByTier: fixed ? FixTier.LLM : undefined,
+    enhancedRounds,
+    enhancedStuck: enhancedStuck || undefined,
   };
 }
 
@@ -732,6 +799,7 @@ function tierResult(
     budgetExceeded: false,
     fixedByTier: tier,
     cacheHit,
+    enhancedRounds: 0,
   };
 }
 

@@ -58,6 +58,14 @@ export function printSummaryBox(summary: RunSummary, write: (s: string) => void)
       write(bar(`${pc.dim("fixed by")}        ${pc.green(tierNames[summary.fixedByTier])}`));
     }
 
+    if (summary.enhancedRounds) {
+      write(
+        bar(
+          `${pc.dim("enhanced loop")}   ${summary.enhancedRounds} extra round(s) — verifier findings fixed automatically`,
+        ),
+      );
+    }
+
     write(bar(`${pc.dim("files edited")}     ${summary.editedFiles.length}`));
     for (const f of summary.editedFiles.slice(0, 6)) write(bar(`  ${pc.cyan("·")} ${f}`));
     if (summary.editedFiles.length > 6) write(bar(`  ${pc.dim(`… +${summary.editedFiles.length - 6} more`)}`));

@@ -641,6 +641,180 @@ test("runFixLoop: edit_file replaces targeted string uniquely and records edited
   });
 });
 
+// ── v0.9.0: enhanced verification feedback loop ───────────────────────────
+
+test("runFixLoop: clean verifyEnhanced ends the loop with no extra round", async () => {
+  await withTmpDir(async (dir) => {
+    await writePkg(dir, { build: "node -e \"process.exit(0)\"" });
+
+    const provider = scriptedProvider([{ toolCalls: [{ id: "1", name: "run_check", input: {} }] }]);
+
+    const result = await runFixLoop({
+      ...baseOpts,
+      cwd: dir,
+      provider,
+      maxRounds: 3,
+      verifyEnhanced: async () => ({ hasIssues: false, report: "", summary: "clean" }),
+    });
+
+    assert.equal(result.fixed, true);
+    assert.equal(result.rounds, 1);
+    assert.equal(result.enhancedRounds, 0);
+    assert.equal(result.enhancedStuck, undefined);
+    assert.equal(provider.calls.length, 1); // no extra LLM round
+  });
+});
+
+test("runFixLoop: verifyEnhanced issues are fed back and fixed in an extra round", async () => {
+  await withTmpDir(async (dir) => {
+    await writePkg(dir, { build: "node -e \"process.exit(0)\"" });
+    await writeFile(join(dir, "app.js"), "broken", "utf8");
+
+    const provider = scriptedProvider([
+      // Round 1: agent declares victory via run_check…
+      { toolCalls: [{ id: "1", name: "run_check", input: {} }] },
+      // Round 2 (after feedback): actually fixes and re-verifies.
+      {
+        toolCalls: [
+          { id: "2", name: "write_file", input: { path: "app.js", content: "fixed" } },
+          { id: "3", name: "run_check", input: {} },
+        ],
+      },
+    ]);
+
+    const report = "TypeScript type errors (1):\n  - src/index.ts: error TS2339: Property 'del' does not exist";
+    let verifyCalls = 0;
+    const result = await runFixLoop({
+      ...baseOpts,
+      cwd: dir,
+      provider,
+      maxRounds: 5,
+      verifyEnhanced: async () => {
+        verifyCalls++;
+        return verifyCalls === 1
+          ? { hasIssues: true, report, summary: "1 issue category(ies)" }
+          : { hasIssues: false, report: "", summary: "clean" };
+      },
+    });
+
+    assert.equal(result.fixed, true);
+    assert.equal(result.rounds, 2);
+    assert.equal(result.enhancedRounds, 1);
+    assert.equal(provider.calls.length, 2);
+
+    // The second LLM call must have received the verifier's report as a user message.
+    const secondCall = provider.calls[1];
+    const feedback = secondCall.find(
+      (m): m is { role: "user"; text: string } => m.role === "user" && "text" in m && m.text.includes("Property 'del'"),
+    );
+    assert.ok(feedback, "expected the verifier report in the next round's messages");
+    assert.match(feedback!.text, /additional verification found problems/);
+
+    const { readFile } = await import("node:fs/promises");
+    assert.equal(await readFile(join(dir, "app.js"), "utf8"), "fixed");
+  });
+});
+
+test("runFixLoop: an identical verifyEnhanced report twice exits early as stuck, not an infinite loop", async () => {
+  await withTmpDir(async (dir) => {
+    await writePkg(dir, { build: "node -e \"process.exit(0)\"" });
+
+    const provider = scriptedProvider([{ toolCalls: [{ id: "1", name: "run_check", input: {} }] }]);
+
+    const report = "TypeScript type errors (1):\n  - src/index.ts: error TS2339: Property 'del' does not exist";
+    const result = await runFixLoop({
+      ...baseOpts,
+      cwd: dir,
+      provider,
+      maxRounds: 15,
+      verifyEnhanced: async () => ({ hasIssues: true, report, summary: "1 issue category(ies)" }),
+    });
+
+    // Build/tests are green (fixed), but the agent provably can't clear the
+    // verifier finding — the loop must give up instead of burning 15 rounds.
+    assert.equal(result.fixed, true);
+    assert.equal(result.enhancedStuck, true);
+    assert.equal(result.enhancedRounds, 1);
+    assert.equal(provider.calls.length, 2); // round 1 + one feedback round, then stop
+  });
+});
+
+test("runFixLoop: without verifyEnhanced there is no enhanced round (regression guard)", async () => {
+  await withTmpDir(async (dir) => {
+    await writePkg(dir, { build: "node -e \"process.exit(0)\"" });
+
+    const provider = scriptedProvider([{ toolCalls: [{ id: "1", name: "run_check", input: {} }] }]);
+
+    const result = await runFixLoop({ ...baseOpts, cwd: dir, provider, maxRounds: 3 });
+
+    assert.equal(result.fixed, true);
+    assert.equal(result.enhancedRounds, 0);
+    assert.equal(provider.calls.length, 1);
+  });
+});
+
+test("runFixLoop + runEnhancedVerification (run.ts wiring): a green build with a type error gets an extra round and is repaired", async () => {
+  await withTmpDir(async (dir) => {
+    // Build/test pass trivially; only `tsc --noEmit` can see the breakage —
+    // exactly the gap the enhanced loop exists to close.
+    const { mkdir, symlink } = await import("node:fs/promises");
+    const { dirname } = await import("node:path");
+    const { fileURLToPath } = await import("node:url");
+    const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+    await mkdir(join(dir, "node_modules", ".bin"), { recursive: true });
+    await symlink(join(repoRoot, "node_modules", "typescript"), join(dir, "node_modules", "typescript"), "dir");
+    await symlink(join("..", "typescript", "bin", "tsc"), join(dir, "node_modules", ".bin", "tsc"));
+    await mkdir(join(dir, "src"));
+    await writePkg(dir, { build: "node -e \"process.exit(0)\"", test: "node -e \"process.exit(0)\"" });
+    await writeFile(
+      join(dir, "tsconfig.json"),
+      JSON.stringify({ compilerOptions: { strict: true, noEmit: true } }),
+      "utf8",
+    );
+
+    const provider = scriptedProvider([
+      // Round 1: the agent "fixes" the build but introduces a type error.
+      {
+        toolCalls: [
+          { id: "1", name: "write_file", input: { path: "src/index.ts", content: "export const n: number = 'oops';\n" } },
+          { id: "2", name: "run_check", input: {} },
+        ],
+      },
+      // Round 2 (after verifier feedback): repairs the type error.
+      {
+        toolCalls: [
+          { id: "3", name: "write_file", input: { path: "src/index.ts", content: "export const n: number = 42;\n" } },
+          { id: "4", name: "run_check", input: {} },
+        ],
+      },
+    ]);
+
+    const { runEnhancedVerification } = await import("../engine/run.js");
+    const result = await runFixLoop({
+      ...baseOpts,
+      cwd: dir,
+      provider,
+      maxRounds: 5,
+      verifyEnhanced: (cwd, files) => runEnhancedVerification(cwd, files),
+    });
+
+    assert.equal(result.fixed, true);
+    assert.equal(result.rounds, 2);
+    assert.equal(result.enhancedRounds, 1);
+    assert.equal(result.enhancedStuck, undefined);
+
+    // The feedback message must carry the actual compiler error.
+    const secondCall = provider.calls[1];
+    const feedback = secondCall.find(
+      (m): m is { role: "user"; text: string } => m.role === "user" && "text" in m && m.text.includes("error TS"),
+    );
+    assert.ok(feedback, "expected the TypeScript error in the next round's messages");
+
+    const { readFile } = await import("node:fs/promises");
+    assert.equal(await readFile(join(dir, "src", "index.ts"), "utf8"), "export const n: number = 42;\n");
+  });
+});
+
 test("runFixLoop: write_file rejects massive code shrinkage on large files", async () => {
   await withTmpDir(async (dir) => {
     await writePkg(dir, { build: "node -e \"process.exit(0)\"" });

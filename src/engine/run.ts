@@ -17,8 +17,9 @@ import {
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { runFixLoop, type FixDecision, type FixSuggestion } from "../agent/fixer.js";
+import { runFixLoop, type EnhancedVerification, type FixDecision, type FixSuggestion } from "../agent/fixer.js";
 import { createProvider } from "../agent/factory.js";
+import type { Provider } from "../agent/provider.js";
 import { runStaticAnalysis } from "./verify.js";
 import { detectSuspiciousChanges } from "./change-detector.js";
 import { runInSandbox } from "./sandbox/orchestrator.js";
@@ -51,6 +52,8 @@ export interface RunOptions {
   digestModel?: string;
   /** provider preset name (openai, anthropic, deepseek, …); auto-detected if omitted */
   provider?: string;
+  /** pre-built fix provider, used INSTEAD of constructing one from provider/model/apiKey (tests, benchmarks) */
+  fixProvider?: Provider;
   /** override / generic OpenAI-compatible base URL */
   baseURL?: string;
   /** explicit API key override */
@@ -79,6 +82,11 @@ export interface RunOptions {
   onFixSuggestion?: (suggestion: FixSuggestion) => Promise<FixDecision>;
   /** run AST-level API-surface analysis after the fix */
   astAnalysis?: boolean;
+  /**
+   * feed verifier findings (type errors, API-surface breaks) back into the fix
+   * loop so the agent can repair them itself (default: true; --no-enhanced-loop disables)
+   */
+  enhancedLoop?: boolean;
   /**
    * run the entire upgrade and fix process in an isolated git worktree directory.
    * Keeps the primary working tree completely clean; on failure, removes the temp worktree.
@@ -122,6 +130,8 @@ export interface RunSummary {
   };
   /** which tier produced the fix (1=codemod, 2=learned pattern, 3=cached, 4=llm) */
   fixedByTier?: number;
+  /** extra fix rounds spent repairing verifier findings (type errors, API surface); 0/undefined = first pass was clean */
+  enhancedRounds?: number;
   /** true when a cache hit saved an LLM call entirely */
   cacheHit?: boolean;
   /** AST-level API surface changes detected after the fix */
@@ -176,6 +186,56 @@ export interface RunFailure {
   dep: string;
   error: string;
   fatal: true;
+}
+
+/**
+ * The enhanced verification fed back into the fix loop (and re-run after it
+ * for the summary). Only ACTIONABLE findings are reported — things the agent
+ * can plausibly fix itself:
+ * - TypeScript type errors (precise compiler messages)
+ * - exported symbols removed / signatures changed (real downstream breakage)
+ *
+ * Deliberately NOT reported: newly introduced `any`, ESLint warnings,
+ * suspicious-change signals (those are for humans — feeding them back would
+ * teach the agent to hide problems), sandbox and perf results (too costly).
+ */
+export async function runEnhancedVerification(
+  cwd: string,
+  editedFiles: string[],
+): Promise<EnhancedVerification> {
+  const problems: string[] = [];
+
+  // 1. TypeScript type errors
+  const staticResults = await runStaticAnalysis(cwd, { strictLint: false });
+  const typeErrors = staticResults
+    .filter((r) => r.stage === "types" && !r.passed)
+    .flatMap((r) => r.warnings || []);
+  if (typeErrors.length > 0) {
+    problems.push(
+      `TypeScript type errors (${typeErrors.length}):\n` +
+        typeErrors.slice(0, 10).map((w) => `  - ${w}`).join("\n"),
+    );
+  }
+
+  // 2. Exported symbols removed or signatures changed by the fix
+  if (editedFiles.length > 0) {
+    const ast = await analyzeApiChanges(cwd, editedFiles, (p) => readFromGitHead(cwd, p));
+    const critical = ast.changes.filter(
+      (c) => c.kind === "export-removed" || c.kind === "signature-changed",
+    );
+    if (critical.length > 0) {
+      problems.push(
+        `Public API surface changed (downstream code may break):\n` +
+          critical.slice(0, 10).map((c) => `  - [${c.file}] ${c.detail}`).join("\n"),
+      );
+    }
+  }
+
+  return {
+    hasIssues: problems.length > 0,
+    report: problems.join("\n\n"),
+    summary: problems.length > 0 ? `${problems.length} issue category(ies)` : "clean",
+  };
 }
 
 export type BatchItemResult = RunSummary | RunFailure;
@@ -368,7 +428,7 @@ async function runInContext(args: ContextRunArgs): Promise<RunSummary> {
   let changelog = await fetchChangelog(target.name, from, to, { cache: !opts.noCache });
   if (changelog) log(`found changelog/release notes for ${target.name}`);
 
-  const provider = createProvider({
+  const provider = opts.fixProvider ?? createProvider({
     provider: opts.provider,
     model: opts.model,
     baseURL: opts.baseURL,
@@ -427,6 +487,10 @@ async function runInContext(args: ContextRunArgs): Promise<RunSummary> {
     noCache: opts.noCache,
     onFixSuggestion: opts.interactive ? opts.onFixSuggestion : undefined,
     onLlmCall: llmCallSink,
+    verifyEnhanced:
+      opts.enhancedLoop === false
+        ? undefined
+        : (c, files) => runEnhancedVerification(c, files),
   });
   summary.fixed = fix.fixed;
   summary.rounds = fix.rounds;
@@ -434,6 +498,11 @@ async function runInContext(args: ContextRunArgs): Promise<RunSummary> {
   summary.editedFiles = fix.editedFiles;
   summary.fixedByTier = fix.fixedByTier;
   summary.cacheHit = fix.cacheHit;
+  summary.enhancedRounds = fix.enhancedRounds || undefined;
+  if (fix.enhancedStuck) {
+    log("⚠️  verifier keeps reporting the same problem — the agent couldn't fix it, review needed");
+    summary.needsReview = true;
+  }
   if (fix.fixedByTier && fix.fixedByTier < 4) {
     const tierNames = ["", "codemod", "learned pattern", "cached fix"];
     log(`fixed by tier ${fix.fixedByTier} (${tierNames[fix.fixedByTier]}) — 0 tokens spent`);

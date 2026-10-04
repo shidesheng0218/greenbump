@@ -52,3 +52,13 @@ test("printSummaryBox: successful fix prints no rollback block", () => {
   assert.doesNotMatch(out, /git reset --hard/);
   assert.doesNotMatch(out, /no git isolation/);
 });
+
+test("printSummaryBox: enhanced loop rounds are surfaced when verifier feedback saved the run", () => {
+  const out = render(baseSummary({ fixed: true, enhancedRounds: 2 }));
+  assert.match(out, /enhanced loop\s+2 extra round\(s\) — verifier findings fixed automatically/);
+});
+
+test("printSummaryBox: no enhanced loop line when the first pass was clean", () => {
+  const out = render(baseSummary({ fixed: true }));
+  assert.doesNotMatch(out, /enhanced loop/);
+});
