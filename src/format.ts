@@ -169,3 +169,87 @@ export function printBatchSummary(results: BatchItemResult[], write: (s: string)
     write(bar(`${color(icon)} ${item.dep} ${item.from} → ${item.to}${suffix}`, color));
   }
 }
+
+/** Format the deterministic impact analysis report for --scan. */
+export function formatScanImpact(report: import("./engine/scan/impact.js").ScanReport): string {
+  const lines: string[] = [];
+  const { summary, detections } = report;
+
+  lines.push(
+    pc.bold(
+      `🌱 greenbump scan — ${summary.depsScanned} outdated ${summary.depsScanned === 1 ? "dependency" : "dependencies"}, ${summary.depsWithKnownBreaking} with known breaking changes`,
+    ),
+  );
+  lines.push("");
+
+  for (const d of detections) {
+    // Dependency header line
+    const wsLabel = d.workspacePath && d.workspacePath !== "." ? `  (${d.workspacePath})` : "";
+    let statusLabel: string;
+    if (d.status === "unknown") {
+      statusLabel = pc.dim("  [unknown — no cached analysis]");
+    } else if (d.status === "info-only") {
+      statusLabel = pc.dim("  [info-only — config migration, no code patterns]");
+    } else if (d.status === "approx") {
+      statusLabel = pc.yellow(`  [breaking: ${d.changes.length} ${d.changes.length === 1 ? "change" : "changes"} — ~${d.filesMatched} files, ~${d.locationsMatched} locations]`);
+    } else {
+      const truncMark = d.truncated ? "≈ " : "";
+      statusLabel = `  [breaking: ${d.changes.length} ${d.changes.length === 1 ? "change" : "changes"} — ${truncMark}${d.filesMatched} files, ${truncMark}${d.locationsMatched} locations]`;
+    }
+    lines.push(`${pc.cyan(d.name)} ${pc.dim(d.current)} → ${pc.green(d.latest)}${wsLabel}${statusLabel}`);
+
+    // Changes
+    if (d.status === "ok" || d.status === "approx") {
+      d.changes.forEach((change, idx) => {
+        const approxMark = change.approx ? pc.yellow("[~] ") : "";
+        lines.push(`  ${idx + 1}. ${approxMark}[${change.severity}] ${change.description} (${change.source})`);
+        if (change.rewrite) {
+          lines.push(`     ${pc.dim("fix:")} ${change.rewrite}`);
+        }
+        // Show up to 5 locations per change
+        const maxShown = 5;
+        let shownCount = 0;
+        for (const fg of change.fileGroups) {
+          for (const loc of fg.locations) {
+            if (shownCount >= maxShown) break;
+            lines.push(`       ${pc.dim(loc.file)}:${loc.line}:  ${loc.excerpt}`);
+            shownCount++;
+          }
+          if (shownCount >= maxShown) break;
+        }
+        if (change.matches > maxShown) {
+          lines.push(`       ${pc.dim(`… +${change.matches - maxShown} more`)}`);
+        }
+        lines.push(`     ${pc.dim(`→ ${change.matches} ${change.matches === 1 ? "location" : "locations"} in ${change.fileGroups.length} ${change.fileGroups.length === 1 ? "file" : "files"}`)}`);
+      });
+    } else if (d.status === "unknown") {
+      lines.push(`  ${pc.dim(`Run: greenbump ${d.name} && greenbump --scan   (uses your API key once, then free)`)}`);
+    } else if (d.status === "info-only") {
+      // Show first change description
+      if (d.changes.length > 0) {
+        lines.push(`  ${pc.dim(d.changes[0].description)}`);
+      }
+      if (d.fileCreations) {
+        for (const fc of d.fileCreations) {
+          lines.push(`  ${pc.dim(`note: will create ${fc.path}`)}`);
+        }
+      }
+    }
+    lines.push("");
+  }
+
+  // Summary
+  if (summary.depsWithKnownBreaking > 0) {
+    const truncNote = summary.truncated ? " (approximate — some hits truncated)" : "";
+    lines.push(
+      pc.bold(
+        `Summary: ${summary.depsWithKnownBreaking} ${summary.depsWithKnownBreaking === 1 ? "dependency" : "dependencies"} with breaking changes touch ${summary.filesAffected} ${summary.filesAffected === 1 ? "file" : "files"}, ${summary.locationsAffected} ${summary.locationsAffected === 1 ? "location" : "locations"}.${truncNote}`,
+      ),
+    );
+    lines.push(pc.dim("Deterministic preview: no LLM calls, no network — sources: built-in codemods, changelog cache."));
+  } else {
+    lines.push(pc.green("✓ No known breaking changes detected in outdated dependencies."));
+  }
+
+  return lines.join("\n");
+}

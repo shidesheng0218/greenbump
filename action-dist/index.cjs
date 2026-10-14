@@ -219086,15 +219086,7 @@ async function tryBuiltinCodemods(ctx) {
       return false;
     if (!new RegExp(c2.errorMatch, "i").test(ctx.failureOutput))
       return false;
-    if (c2.versionRange) {
-      const { fromMajor: rf, toMajor: rt2 } = c2.versionRange;
-      if (rf !== void 0 && fromMajor !== rf)
-        return false;
-      const upper = rt2 ?? (rf !== void 0 ? rf + 1 : void 0);
-      if (upper !== void 0 && toMajor > upper)
-        return false;
-    }
-    return true;
+    return codemodMatchesRange(c2.versionRange, fromMajor, toMajor);
   });
   if (candidates.length === 0) {
     return noFix(FixTier.REGEX);
@@ -219302,6 +219294,18 @@ function noFix(tier) {
     description: "no applicable pattern",
     tokensUsed: { inputTokens: 0, outputTokens: 0 }
   };
+}
+function codemodMatchesRange(range, fromMajor, toMajor) {
+  if (!range)
+    return true;
+  const { fromMajor: rf, toMajor: rt2 } = range;
+  if (rf !== void 0 && fromMajor !== rf)
+    return false;
+  if (toMajor <= fromMajor)
+    return false;
+  if (rt2 !== void 0 && toMajor > rt2)
+    return false;
+  return true;
 }
 
 // dist/engine/context/optimizer.js

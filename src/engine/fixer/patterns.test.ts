@@ -7,6 +7,7 @@ import { join, dirname } from "node:path";
 import {
   tryBuiltinCodemods,
   buildContextKey,
+  codemodMatchesRange,
   FixTier,
 } from "./patterns.js";
 
@@ -416,4 +417,54 @@ test("buildContextKey: a content fingerprint distinguishes same-error-different-
   assert.notEqual(base, withA);
   // Same fingerprint → same key (stable replay for the same code)
   assert.equal(withA, buildContextKey("react", "18.0.0", "19.0.0", "TypeError: x is not a function", "fp-aaa"));
+});
+
+// ── codemod version-range matching (shared with --scan) ───────────────────
+
+test("codemodMatchesRange: a codemod with no range applies to any upgrade", () => {
+  assert.equal(codemodMatchesRange(undefined, 3, 4), true);
+  assert.equal(codemodMatchesRange(undefined, 1, 1), true);
+});
+
+test("codemodMatchesRange: an exact from→to range matches only that bump", () => {
+  assert.equal(codemodMatchesRange({ fromMajor: 18, toMajor: 19 }, 18, 19), true);
+  assert.equal(codemodMatchesRange({ fromMajor: 18, toMajor: 19 }, 17, 18), false);
+  assert.equal(codemodMatchesRange({ fromMajor: 18, toMajor: 19 }, 18, 20), false);
+});
+
+test("codemodMatchesRange: a same-major bump does not match (no breaking change)", () => {
+  // A codemod declared for zod 3→4 must not fire on a 3.23 → 3.24 patch upgrade.
+  assert.equal(codemodMatchesRange({ fromMajor: 3, toMajor: 4 }, 3, 3), false);
+  assert.equal(codemodMatchesRange({ fromMajor: 18, toMajor: 19 }, 18, 18), false);
+});
+
+test("codemodMatchesRange: a multi-major window covers every bump inside it", () => {
+  // Mongoose 6→7 and 6→8 both hit the same doc.remove() codemod.
+  const range = { fromMajor: 6, toMajor: 8 };
+  assert.equal(codemodMatchesRange(range, 6, 7), true);
+  assert.equal(codemodMatchesRange(range, 6, 8), true);
+  assert.equal(codemodMatchesRange(range, 6, 9), false);
+  assert.equal(codemodMatchesRange(range, 7, 8), false);
+});
+
+test("codemodMatchesRange: fromMajor-only range requires that exact starting major", () => {
+  assert.equal(codemodMatchesRange({ fromMajor: 5 }, 5, 9), true);
+  assert.equal(codemodMatchesRange({ fromMajor: 5 }, 4, 5), false);
+});
+
+test("codemods: a same-major patch upgrade does not apply a major-bump codemod", async () => {
+  await withProject({ "src/validate.js": "r.error.errors;\n" }, async (dir) => {
+    const result = await tryBuiltinCodemods({
+      cwd: dir,
+      packageName: "zod",
+      fromVersion: "3.23.8",
+      toVersion: "3.24.0",
+      failureOutput: "TypeError: error.errors is not a function",
+      candidateFiles: ["src/validate.js"],
+    });
+
+    assert.equal(result.applied, false);
+    const unchanged = await readFile(join(dir, "src/validate.js"), "utf8");
+    assert.equal(unchanged, "r.error.errors;\n");
+  });
 });

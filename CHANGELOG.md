@@ -3,7 +3,67 @@
 All notable changes to this project are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased] - v0.8.0
+## [Unreleased] - v0.9.0
+
+### Added
+- **Deterministic preview — `greenbump --scan` impact analysis**: `--scan` no longer just
+  lists outdated dependencies; it now reports *which files and lines each known breaking
+  change would touch*, with **no LLM call, no API key, and no network access**. Sources are
+  the built-in codemod registry plus the local changelog cache, so it is free, offline and
+  repeatable. Zero-token counterpart to the paid fix loop — and the honest answer to "will
+  this upgrade break my code?" before committing to anything.
+  - Probes are collected from two sources and merged: built-in codemods (`package`/major-range
+    match) and cached changelog digests (`oldApi` → search pattern).
+  - A **single pass** over the project tree matches every probe, so N dependencies × M
+    breaking changes costs one walk, not N×M. Regexes are compiled once per probe.
+  - File:line precise output grouped by dependency and change; `--scan --json` emits
+    `schemaVersion: 1` for CI and dashboards; `--scan --no-impact` restores the plain list.
+  - **Honest degradation**: a dependency with no codemod and no cached digest is reported
+    as `unknown` with a hint to run a real upgrade once (which caches the digest, making
+    every later `--scan` free forever). Scan never guesses and never silently calls a model.
+  - Per-probe cap (200) plus file/change display caps keep huge matches (e.g. `_.get`)
+    readable; truncated counts are reported as lower bounds, never as exact figures.
+  - Bare-identifier probes (e.g. `describe`) are import-gated: they only count matches in
+    files that actually import the package.
+  - New modules: `src/engine/scan/{probes,indexer,detect,impact}.ts`.
+- **Verifier feedback loop** (`src/agent/fixer.ts`, `src/engine/run.ts`): post-fix findings
+  are no longer one-way notifications. When the base build/test check passes, an enhanced
+  verification pass runs and any *actionable* finding — TypeScript type errors, removed
+  exports, changed signatures — is fed back to the agent as another round, so it can fix
+  its own green-but-broken result instead of handing it to a human. Converges via the
+  existing `maxRounds`/`maxTokens` budgets plus duplicate-report detection (an identical
+  report twice ends the loop and flags `needsReview`). Cosmetic findings (lint warnings,
+  new `any`) and human-signal findings (touched test files) are deliberately *not* fed back.
+- **Reproducible benchmark suite** (`benchmarks/`): 8 real upgrade fixtures run through an
+  actual `run()` call and checked mechanically — was it fixed, do required/forbidden
+  patterns hold, and did the agent touch a file it must not (manifests, lockfiles, tests).
+  `npm run bench` runs everything, `npm run bench:no-llm` runs the keyless subset, and CI
+  runs that subset on every PR. Cases needing an API key skip cleanly and are reported as
+  SKIP, never as pass.
+
+### Fixed
+- **A major-bump codemod no longer fires on a same-major upgrade.** A codemod declared for
+  `3→4` matched `fromMajor === 3 && toMajor <= 4`, which included `3→3` — so a `zod
+  3.23.8 → 3.24.0` patch upgrade reported zod 4's breaking changes, and the scan of that
+  upgrade predicted breakages that do not apply. Range matching is now one shared predicate
+  (`codemodMatchesRange`) used by both the fix loop and `--scan`, and requires an actual
+  major bump.
+- **Generic `package: "*"` codemods are no longer attributed to unrelated dependencies.**
+  The `assert.equal` / `util.is*` codemods are error-gated in the fix loop, but `--scan` has
+  no error output — every outdated dependency was consequently reported as "breaking"
+  `assert.equal`. They now apply only to Node-runtime upgrades (`node`, `@types/node`).
+- `extractCandidateFiles` matched stack-frame paths against `cwd` by string prefix, so on
+  macOS — where `/var` symlinks to `/private/var` and Node stack frames carry the realpath —
+  projects under a symlinked path yielded zero candidate files and codemods never fired.
+  Paths are now matched against both `cwd` and its realpath.
+
+### Changed
+- `Codemod` and `parseMajor` are exported from `src/engine/fixer/patterns.ts`, along with a
+  read-only `builtinCodemods()` accessor and the shared `codemodMatchesRange()` predicate.
+- README claims are now backed by the benchmark suite rather than asserted: the
+  unsubstantiated "95%+ accuracy" figure was replaced with measured results.
+
+## [0.8.0] - 2026-09-07
 
 ### Added
 - **Hard tool-layer guardrails** (`src/agent/guard.ts`): the fix agent's `read_file`,

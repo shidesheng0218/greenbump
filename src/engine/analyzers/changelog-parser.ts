@@ -41,6 +41,28 @@ export interface ChangelogDigest {
   tokensUsed: { inputTokens: number; outputTokens: number };
 }
 
+/**
+ * Read a changelog digest from cache (read-only, no LLM call).
+ * Returns null if not cached or corrupt.
+ * Used by --scan for deterministic impact analysis.
+ */
+export async function readDigestFromCache(
+  packageName: string,
+  from: string,
+  to: string,
+): Promise<BreakingChange[] | null> {
+  const cache = getCache();
+  await cache.init();
+  const cacheKey = `digest::${packageName}--${from}--${to}`;
+  const cached = await cache.getLlmFix(cacheKey);
+  if (!cached) return null;
+  try {
+    return JSON.parse((cached.edits as any)["__digest__"] ?? "[]") as BreakingChange[];
+  } catch {
+    return null;
+  }
+}
+
 const DIGEST_PROMPT = (pkg: string, from: string, to: string, changelog: string) =>
   `You are analyzing release notes for a dependency upgrade. Extract ONLY the breaking changes.
 

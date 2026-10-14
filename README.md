@@ -196,9 +196,49 @@ npx greenbump eslint --to 9.15.0
 # Let greenbump pick the most-outdated dependency
 npx greenbump
 
-# List outdated dependencies (read-only)
+# Preview upgrade impact — deterministic, no API key, no LLM calls
 npx greenbump --scan
 ```
+
+### Deterministic preview: `--scan`
+
+`--scan` answers one question **without spending a token**: *if I upgrade these
+dependencies, which of my files break?*
+
+```bash
+npx greenbump --scan
+```
+
+```
+🌱 greenbump scan — 1 outdated dependency, 1 with known breaking changes
+
+zod 3.23.8 → 4.6.7  [breaking: 2 changes — 1 files, 1 locations]
+  1. [high] error.errors → error.issues (Zod 4) (builtin-codemod)
+     fix: .error.issues
+       src/validate.js:6:  return r.error.errors[0].message;
+     → 1 location in 1 file
+  2. [high] z.string().email()/.url()/.uuid() → z.email()/z.url()/z.uuid() (Zod 4)
+     → 0 locations in 0 files
+
+Summary: 1 dependency with breaking changes touch 1 file, 1 location.
+Deterministic preview: no LLM calls, no network — sources: built-in codemods, changelog cache.
+```
+
+Notes on what you're seeing:
+
+- **No API key required.** Scan reads its built-in codemod registry and your local
+  changelog cache only. It never calls a model and never touches the network.
+- **The count that matters is "how many touch your code"**, not how many exist. Breaking
+  changes listed with `0 locations` do not affect this repository.
+- **`unknown` means unknown.** If a dependency has no built-in codemod and no cached
+  analysis, scan says so instead of guessing. Run a real upgrade once
+  (`npx greenbump <dep>`) and its changelog digest is cached — the next `--scan` is
+  free forever.
+- **`--scan --json`** emits the same data as structured JSON (`schemaVersion: 1`) for CI
+  or dashboards.
+- **`--scan --no-impact`** restores the plain outdated-dependency list.
+- Results are **file:line precise** and read-only: nothing is modified, nothing is
+  committed.
 
 ### Advanced Usage
 
@@ -234,7 +274,8 @@ npx greenbump react react-dom --group react-upgrade
 | `--to <version>` | Target version (default: `latest`). |
 | `--ecosystem <id>` | Dependency ecosystem (`npm`, `poetry`, `cargo`, `maven`, …). Auto-detected if omitted. |
 | `--list-ecosystems` | List every supported ecosystem and exit. |
-| `--scan` | List outdated dependencies without upgrading (read-only mode). |
+| `--scan` | Preview upgrade impact without upgrading: lists outdated dependencies **and** which files/lines each known breaking change would touch. Deterministic — no LLM, no API key, no network. |
+| `--no-impact` | With `--scan`, skip impact analysis and just list outdated dependencies. |
 | `--all` | Upgrade every outdated dependency found. |
 | `--group <name>` | Combine multiple deps into one branch/PR. |
 
@@ -277,7 +318,7 @@ npx greenbump react react-dom --group react-upgrade
 | `--cache-stats` | Show cache entry count, size, and per-category breakdown. |
 | `--cache-clear [category]` | Clear cached entries (`changelogs`, `llm-fixes`, `patterns`; all if omitted). |
 | `--stats [days]` | Show a usage/cost-savings report for the last N days (default 30) and exit. |
-| `--json` | With `--stats`, print the raw JSON summary instead of the formatted report. |
+| `--json` | With `--stats` or `--scan`, print the raw JSON output instead of the formatted report. |
 
 #### How the tiered fix strategy keeps costs down
 

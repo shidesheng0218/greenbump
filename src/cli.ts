@@ -6,7 +6,7 @@ import { run, RunError } from "./engine/run.js";
 import { runBatch } from "./engine/batch.js";
 import { renderPrBody } from "./pr.js";
 import { hasAnyKey, listProviders } from "./agent/factory.js";
-import { formatDuration, printSummaryBox, printBatchSummary } from "./format.js";
+import { formatDuration, printSummaryBox, printBatchSummary, formatScanImpact } from "./format.js";
 import { listEcosystems } from "./engine/ecosystems/index.js";
 import { exitCodeFor, overallExitCode } from "./exitcode.js";
 import { buildReport, writeReport } from "./report.js";
@@ -46,7 +46,8 @@ program
   .option("--group <name>", "combine multiple deps named on the command line into one branch/PR")
   .option("--fail-fast", "abort a batch on the first hard failure instead of continuing")
   .option("--workspace <path>", "disambiguate a dep that's outdated at different versions in multiple workspace packages")
-  .option("--scan", "list outdated dependencies without upgrading (read-only mode)")
+  .option("--scan", "preview upgrade impact without upgrading: lists outdated deps and the files/lines known breaking changes would touch (deterministic — no LLM, no API key)")
+  .option("--no-impact", "with --scan, just list outdated dependencies without impact analysis")
   .option("--sandbox", "run tests in isolated Docker container (requires Docker)")
   .option("--services <services>", "comma-separated list of services to start (postgres,redis,mongodb)")
   .option("--keep-container", "keep Docker container after run for debugging")
@@ -61,7 +62,7 @@ program
   .option("--no-enhanced-loop", "don't feed verifier findings (type errors, API surface) back into the fix loop — useful on very slow projects")
   .option("--worktree", "run upgrade in an isolated temporary git worktree to keep the primary directory clean")
   .option("--stats [days]", "show usage/cost-savings report for the last N days (default 30) and exit")
-  .option("--json", "with --stats, print the raw JSON summary instead of the formatted report")
+  .option("--json", "with --stats or --scan, print the raw JSON output instead of the formatted report")
   .action(async (deps, opts) => {
     if (opts.listProviders) {
       console.log("Built-in provider presets:\n" + listProviders());
@@ -123,10 +124,26 @@ program
         console.log(pc.green("✓ All dependencies are up to date."));
         process.exit(0);
       }
-      console.log(pc.bold(`Found ${outdated.length} outdated dependencies:\n`));
-      for (const o of outdated) {
-        const loc = o.workspacePath === WORKSPACE_ROOT ? "(root)" : o.workspacePath;
-        console.log(`  ${pc.cyan(o.name)} ${pc.dim(o.current)} → ${pc.green(o.latest)} ${pc.dim(`[${loc}]`)}`);
+
+      // --no-impact: legacy behavior (just list outdated deps)
+      if (opts.impact === false) {
+        console.log(pc.bold(`Found ${outdated.length} outdated dependencies:\n`));
+        for (const o of outdated) {
+          const loc = o.workspacePath === WORKSPACE_ROOT ? "(root)" : o.workspacePath;
+          console.log(`  ${pc.cyan(o.name)} ${pc.dim(o.current)} → ${pc.green(o.latest)} ${pc.dim(`[${loc}]`)}`);
+        }
+        process.exit(0);
+      }
+
+      // Default: impact analysis (deterministic, zero LLM)
+      const { buildScanReport } = await import("./engine/scan/impact.js");
+      const report = await buildScanReport(cwd, outdated, { noCache: opts.cache === false });
+      report.packageManager = pm;
+
+      if (opts.json) {
+        console.log(JSON.stringify(report, null, 2));
+      } else {
+        console.log(formatScanImpact(report));
       }
       process.exit(0);
     }

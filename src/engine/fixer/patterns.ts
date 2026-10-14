@@ -41,7 +41,7 @@ export interface TieredFixResult {
 
 // ── Built-in codemod patterns (Level 1) ───────────────────────────────────
 
-interface Codemod {
+export interface Codemod {
   /** which package this applies to (or "*" for any) */
   package: string;
   /**
@@ -412,15 +412,7 @@ export async function tryBuiltinCodemods(ctx: PatternFixContext): Promise<Tiered
   const candidates = BUILTIN_CODEMODS.filter((c) => {
     if (c.package !== "*" && c.package !== ctx.packageName) return false;
     if (!new RegExp(c.errorMatch, "i").test(ctx.failureOutput)) return false;
-    if (c.versionRange) {
-      const { fromMajor: rf, toMajor: rt } = c.versionRange;
-      if (rf !== undefined && fromMajor !== rf) return false;
-      // toMajor omitted → codemod targets exactly the next major (rf+1).
-      // toMajor set → codemod applies to any bump landing at or below it.
-      const upper = rt ?? (rf !== undefined ? rf + 1 : undefined);
-      if (upper !== undefined && toMajor > upper) return false;
-    }
-    return true;
+    return codemodMatchesRange(c.versionRange, fromMajor, toMajor);
   });
 
   if (candidates.length === 0) {
@@ -698,7 +690,8 @@ export function buildContextKey(
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-function parseMajor(version: string): number {
+/** Parse the major version number from a version string like "18.3.1" or "^19.0.0". */
+export function parseMajor(version: string): number {
   const m = version.replace(/^[~^>=\s]*/, "").match(/^(\d+)/);
   return m ? parseInt(m[1], 10) : 0;
 }
@@ -734,4 +727,31 @@ export function listBuiltinCodemods(): string {
   return BUILTIN_CODEMODS
     .map((c) => `  ${c.package}${c.versionRange ? ` (${c.versionRange.fromMajor}→${c.versionRange.toMajor})` : ""}: ${c.description}`)
     .join("\n");
+}
+
+/** Read-only access to the built-in codemod registry (for --scan impact analysis). */
+export function builtinCodemods(): readonly Codemod[] {
+  return BUILTIN_CODEMODS;
+}
+
+/**
+ * Does a codemod's versionRange cover this major bump?
+ *
+ * Requires an *actual* major bump: a codemod declared for `3→4` must not fire
+ * on `3→3` (a minor/patch upgrade inside the same major). Without that check a
+ * `--scan` of `zod 3.23.8 → 3.24.0` reported zod 4's breaking changes.
+ *
+ * A codemod with no versionRange is not version-gated at all.
+ */
+export function codemodMatchesRange(
+  range: { fromMajor?: number; toMajor?: number } | undefined,
+  fromMajor: number,
+  toMajor: number,
+): boolean {
+  if (!range) return true;
+  const { fromMajor: rf, toMajor: rt } = range;
+  if (rf !== undefined && fromMajor !== rf) return false;
+  if (toMajor <= fromMajor) return false;
+  if (rt !== undefined && toMajor > rt) return false;
+  return true;
 }

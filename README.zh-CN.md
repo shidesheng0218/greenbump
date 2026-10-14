@@ -177,9 +177,41 @@ npx greenbump eslint --to 9.15.0
 # 不指定依赖，让 greenbump 自动选择最过期的一个
 npx greenbump
 
-# 列出过期依赖（只读模式，不做升级）
+# 预览升级影响 —— 确定性分析，不需要 API key，不调用大模型
 npx greenbump --scan
 ```
+
+### 确定性预览：`--scan`
+
+`--scan` 用**零成本**回答一个问题：*如果升级这些依赖，我的哪些文件会炸？*
+
+```bash
+npx greenbump --scan
+```
+
+```
+🌱 greenbump scan — 1 outdated dependency, 1 with known breaking changes
+
+zod 3.23.8 → 4.6.7  [breaking: 2 changes — 1 files, 1 locations]
+  1. [high] error.errors → error.issues (Zod 4) (builtin-codemod)
+     fix: .error.issues
+       src/validate.js:6:  return r.error.errors[0].message;
+     → 1 location in 1 file
+  2. [high] z.string().email()/.url()/.uuid() → z.email()/z.url()/z.uuid() (Zod 4)
+     → 0 locations in 0 files
+
+Summary: 1 dependency with breaking changes touch 1 file, 1 location.
+Deterministic preview: no LLM calls, no network — sources: built-in codemods, changelog cache.
+```
+
+几个要点：
+
+- **不需要 API key。** scan 只读取内置 codemod 库和本地 changelog 缓存，不调用任何模型，也不联网。
+- **真正有意义的数字是「影响你几处」，不是「总共多少个」。** 标注 `0 locations` 的破坏性变更对你的仓库没有影响。
+- **`unknown` 就是「不知道」。** 如果某个依赖既没有内置 codemod、也没有缓存分析结果，scan 会如实说明，而不是瞎猜。跑一次真实升级（`npx greenbump <依赖名>`）就会把 changelog 解析结果缓存下来，之后 `--scan` 永久免费。
+- **`--scan --json`** 输出结构化 JSON（`schemaVersion: 1`），方便接入 CI 或看板。
+- **`--scan --no-impact`** 恢复成纯过时依赖列表。
+- 结果是**精确到 file:line** 的，且完全只读：不改文件、不提交。
 
 ### 进阶用法
 
@@ -215,7 +247,8 @@ npx greenbump react react-dom --group react-upgrade
 | `--to <version>` | 目标版本（默认：`latest`）。 |
 | `--ecosystem <id>` | 依赖生态系统（`npm`、`poetry`、`cargo`、`maven` 等）。省略时自动检测。 |
 | `--list-ecosystems` | 列出所有支持的生态系统并退出。 |
-| `--scan` | 仅列出过期依赖，不执行升级（只读模式）。 |
+| `--scan` | 预览升级影响（不执行升级）：列出过期依赖，**并**指出每个已知破坏性变更会触及哪些文件/哪些行。确定性分析——不调用大模型、不需要 API key、不联网。 |
+| `--no-impact` | 配合 `--scan`，跳过影响面分析，仅列出过期依赖。 |
 | `--all` | 升级所有检测到的过期依赖。 |
 | `--group <name>` | 将多个依赖合并到同一个分支/PR。 |
 
@@ -257,7 +290,7 @@ npx greenbump react react-dom --group react-upgrade
 | `--cache-stats` | 显示缓存条目数、体积及分类统计。 |
 | `--cache-clear [category]` | 清除缓存条目（`changelogs`、`llm-fixes`、`patterns`；省略则全部清除）。 |
 | `--stats [days]` | 显示最近 N 天（默认 30 天）的用量与节省报告并退出。 |
-| `--json` | 配合 `--stats` 使用，输出原始 JSON 而非格式化报告。 |
+| `--json` | 配合 `--stats` 或 `--scan` 使用，输出原始 JSON 而非格式化报告。 |
 
 #### 分层修复策略如何降低成本
 
