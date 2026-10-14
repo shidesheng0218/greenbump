@@ -140,6 +140,15 @@ then re-ran your test suite to confirm the fix — all inside the fix loop shown
 - **Auto-detection** from lockfiles/manifests
 - **Fast**: Reuses your existing package manager cache
 
+### 🔎 Deterministic Impact Preview (v0.9.0+)
+- 🔍 **`--scan` needs no API key, no network, and no LLM** — it reads the built-in codemod
+  registry plus your local changelog cache, so it is free and repeatable
+- 📍 **File-and-line precise**: tells you which of *your* files and lines a breaking change
+  would touch, not just how many breaking changes exist upstream
+- 🧾 **`--scan --json`** (`schemaVersion: 1`) for CI gates and dashboards
+- 🤝 **Honest by construction**: a dependency with no known analysis is reported as
+  `unknown` rather than guessed at
+
 ### 🛡️ Safe by Default
 - **Git branch isolation** - Never touches your main branch
 - **No auto-merge** - Always requires human review
@@ -162,7 +171,8 @@ then re-ran your test suite to confirm the fix — all inside the fix loop shown
 | **Database testing** | ✅ (Postgres, MySQL, Redis, Mongo) | ❌ | ❌ | ❌ |
 | **Performance tracking** | ✅ (Build time, bundle size) | ❌ | ❌ | ❌ |
 | **Verification** | Your build + tests + types | GitHub's CI (after PR) | CI after PR | Sandbox + your tests |
-| **Cost model** | Your API key (pay per fix) | Free (GitHub-hosted) | Free (self-host or SaaS) | Your API key |
+| **Zero-cost impact preview** | ✅ (`--scan` — no LLM, no API key, no network) | ❌ | ❌ | ❌ |
+| **Cost model** | Your API key (pay per fix) — preview is free | Free (GitHub-hosted) | Free (self-host or SaaS) | Your API key |
 | **Batch upgrades** | ✅ (`--all`) | ✅ | ✅ | ❌ |
 
 **greenbump is the only tool that combines:**
@@ -170,6 +180,7 @@ then re-ran your test suite to confirm the fix — all inside the fix loop shown
 - ✅ Actual code fixing
 - ✅ Model flexibility
 - ✅ Isolated verification (optional sandbox + database services)
+- ✅ A free, deterministic impact preview before any token is spent
 
 ---
 
@@ -788,7 +799,7 @@ Full example with all inputs: [examples/greenbump.yml](examples/greenbump.yml)
 - **Runtime-only failures** your tests don't cover
 - **Flaky test suites** where "tests pass" is unreliable
 
-> **💡 Best Practice**: Use greenbump as a first pass on straightforward upgrades. Always review the PR diff before merging, especially for deps touching security, data handling, or critical paths. Use `--max-rounds` to cap token spend on hard upgrades, and `--scan` to preview what's outdated before committing.
+> **💡 Best Practice**: Use greenbump as a first pass on straightforward upgrades. Always review the PR diff before merging, especially for deps touching security, data handling, or critical paths. Use `--max-rounds` to cap token spend on hard upgrades, and `--scan` to preview exactly which files and lines an upgrade would touch — before spending a token on it.
 
 ---
 
@@ -809,10 +820,11 @@ Full example with all inputs: [examples/greenbump.yml](examples/greenbump.yml)
 - [x] **v0.3.0**: Static analysis (TypeScript + ESLint) + change detection
 - [x] **v0.4.0**: AST verification + changelog digest
 - [x] **v0.5.0**: Docker sandbox + database testing + performance regression detection
-- [ ] **v0.6.0**: Web UI for monitoring upgrades
-- [ ] **v0.7.0**: Upgrade impact prediction (before running)
-- [ ] **v0.8.0**: Custom verification scripts
-- [ ] **v0.9.0**: Multi-repository orchestration
+- [x] **v0.6.0**: Tiered free fixes (codemod → learned pattern → cache), disk cache, interactive mode + AST API-surface analysis
+- [x] **v0.7.0**: Expanded codemod library (24 codemods), `--stats` usage/cost report
+- [x] **v0.8.0**: Hard tool-layer guardrails, per-call cost ledger, cheap `--digest-model` routing
+- [x] **v0.9.0**: Deterministic `--scan` impact preview + verifier feedback loop + reproducible benchmark suite
+- [ ] **Next**: Quantified impact reporting ("1,934 changes upstream, 3 touch you, all fixed") and an MCP server so editors can call greenbump directly
 - [ ] **v1.0.0**: Production-ready release
 
 ---
