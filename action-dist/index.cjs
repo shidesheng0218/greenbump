@@ -11372,7 +11372,7 @@ ${lanes.join("\n")}
         }
         return alternatives;
       }
-      function parsePartial(text) {
+      function parsePartial2(text) {
         const match = partialRegExp.exec(text);
         if (!match) return void 0;
         const [, major, minor = "*", patch = "*", prerelease, build2] = match;
@@ -11386,9 +11386,9 @@ ${lanes.join("\n")}
         return { version: version2, major, minor, patch };
       }
       function parseHyphen(left, right, comparators) {
-        const leftResult = parsePartial(left);
+        const leftResult = parsePartial2(left);
         if (!leftResult) return false;
-        const rightResult = parsePartial(right);
+        const rightResult = parsePartial2(right);
         if (!rightResult) return false;
         if (!isWildcard(leftResult.major)) {
           comparators.push(createComparator(">=", leftResult.version));
@@ -11401,7 +11401,7 @@ ${lanes.join("\n")}
         return true;
       }
       function parseComparator(operator, text, comparators) {
-        const result = parsePartial(text);
+        const result = parsePartial2(text);
         if (!result) return false;
         const { version: version2, major, minor, patch } = result;
         if (!isWildcard(major)) {
@@ -15030,7 +15030,7 @@ ${lanes.join("\n")}
             writeOutputIsTTY() {
               return process.stdout.isTTY;
             },
-            readFile: readFile17,
+            readFile: readFile20,
             writeFile: writeFile22,
             watchFile: watchFile2,
             watchDirectory,
@@ -15071,9 +15071,9 @@ ${lanes.join("\n")}
               return process.memoryUsage().heapUsed;
             },
             getFileSize(path2) {
-              const stat6 = statSync2(path2);
-              if (stat6 == null ? void 0 : stat6.isFile()) {
-                return stat6.size;
+              const stat8 = statSync2(path2);
+              if (stat8 == null ? void 0 : stat8.isFile()) {
+                return stat8.size;
               }
               return 0;
             },
@@ -15236,7 +15236,7 @@ ${lanes.join("\n")}
               callback
             );
           }
-          function readFile17(fileName, _encoding) {
+          function readFile20(fileName, _encoding) {
             let buffer;
             try {
               buffer = _fs.readFileSync(fileName);
@@ -15291,19 +15291,19 @@ ${lanes.join("\n")}
                 if (entry === "." || entry === "..") {
                   continue;
                 }
-                let stat6;
+                let stat8;
                 if (typeof dirent === "string" || dirent.isSymbolicLink()) {
                   const name = combinePaths(path2, entry);
-                  stat6 = statSync2(name);
-                  if (!stat6) {
+                  stat8 = statSync2(name);
+                  if (!stat8) {
                     continue;
                   }
                 } else {
-                  stat6 = dirent;
+                  stat8 = dirent;
                 }
-                if (stat6.isFile()) {
+                if (stat8.isFile()) {
                   files.push(entry);
-                } else if (stat6.isDirectory()) {
+                } else if (stat8.isDirectory()) {
                   directories.push(entry);
                 }
               }
@@ -15318,15 +15318,15 @@ ${lanes.join("\n")}
             return matchFiles(path2, extensions, excludes, includes, useCaseSensitiveFileNames2, process.cwd(), depth, getAccessibleFileSystemEntries, realpath2);
           }
           function fileSystemEntryExists(path2, entryKind) {
-            const stat6 = statSync2(path2);
-            if (!stat6) {
+            const stat8 = statSync2(path2);
+            if (!stat8) {
               return false;
             }
             switch (entryKind) {
               case 0:
-                return stat6.isFile();
+                return stat8.isFile();
               case 1:
-                return stat6.isDirectory();
+                return stat8.isDirectory();
               default:
                 return false;
             }
@@ -15824,11 +15824,11 @@ ${lanes.join("\n")}
           return toComponents;
         }
         const components = toComponents.slice(start);
-        const relative3 = [];
+        const relative5 = [];
         for (; start < fromComponents.length; start++) {
-          relative3.push("..");
+          relative5.push("..");
         }
-        return ["", ...relative3, ...components];
+        return ["", ...relative5, ...components];
       }
       function getRelativePathFromDirectory(fromDirectory, to, getCanonicalFileNameOrIgnoreCase) {
         Debug.assert(getRootLength(fromDirectory) > 0 === getRootLength(to) > 0, "Paths must either both be absolute or both be relative");
@@ -41541,7 +41541,7 @@ ${lanes.join("\n")}
         const {
           languageVersion,
           setExternalModuleIndicator: overrideSetExternalModuleIndicator,
-          impliedNodeFormat: format,
+          impliedNodeFormat: format2,
           jsDocParsingMode
         } = typeof languageVersionOrOptions === "object" ? languageVersionOrOptions : { languageVersion: languageVersionOrOptions };
         if (languageVersion === 100) {
@@ -41557,8 +41557,8 @@ ${lanes.join("\n")}
             jsDocParsingMode
           );
         } else {
-          const setIndicator = format === void 0 ? overrideSetExternalModuleIndicator : (file) => {
-            file.impliedNodeFormat = format;
+          const setIndicator = format2 === void 0 ? overrideSetExternalModuleIndicator : (file) => {
+            file.impliedNodeFormat = format2;
             return (overrideSetExternalModuleIndicator || setExternalModuleIndicator)(file);
           };
           result = Parser.parseSourceFile(
@@ -51792,7 +51792,7 @@ ${lanes.join("\n")}
         const possibleOption = getSpellingSuggestion(unknownOption, diagnostics.optionDeclarations, getOptionName);
         return possibleOption ? createDiagnosticForNodeInSourceFileOrCompilerDiagnostic(sourceFile, node, diagnostics.unknownDidYouMeanDiagnostic, unknownOptionErrorText || unknownOption, possibleOption.name) : createDiagnosticForNodeInSourceFileOrCompilerDiagnostic(sourceFile, node, diagnostics.unknownOptionDiagnostic, unknownOptionErrorText || unknownOption);
       }
-      function parseCommandLineWorker(diagnostics, commandLine, readFile17) {
+      function parseCommandLineWorker(diagnostics, commandLine, readFile20) {
         const options = {};
         let watchOptions;
         const fileNames = [];
@@ -51840,7 +51840,7 @@ ${lanes.join("\n")}
           }
         }
         function parseResponseFile(fileName) {
-          const text = tryReadFile(fileName, readFile17 || ((fileName2) => sys.readFile(fileName2)));
+          const text = tryReadFile(fileName, readFile20 || ((fileName2) => sys.readFile(fileName2)));
           if (!isString(text)) {
             errors.push(text);
             return;
@@ -51943,8 +51943,8 @@ ${lanes.join("\n")}
         unknownDidYouMeanDiagnostic: Diagnostics.Unknown_compiler_option_0_Did_you_mean_1,
         optionTypeMismatchDiagnostic: Diagnostics.Compiler_option_0_expects_an_argument
       };
-      function parseCommandLine(commandLine, readFile17) {
-        return parseCommandLineWorker(compilerOptionsDidYouMeanDiagnostics, commandLine, readFile17);
+      function parseCommandLine(commandLine, readFile20) {
+        return parseCommandLineWorker(compilerOptionsDidYouMeanDiagnostics, commandLine, readFile20);
       }
       function getOptionFromName(optionName, allowShort) {
         return getOptionDeclarationFromName(getOptionsNameMap, optionName, allowShort);
@@ -52026,8 +52026,8 @@ ${lanes.join("\n")}
           watchOptionsToExtend
         );
       }
-      function readConfigFile(fileName, readFile17) {
-        const textOrDiagnostic = tryReadFile(fileName, readFile17);
+      function readConfigFile(fileName, readFile20) {
+        const textOrDiagnostic = tryReadFile(fileName, readFile20);
         return isString(textOrDiagnostic) ? parseConfigFileTextToJson(fileName, textOrDiagnostic) : { config: {}, error: textOrDiagnostic };
       }
       function parseConfigFileTextToJson(fileName, jsonText) {
@@ -52042,14 +52042,14 @@ ${lanes.join("\n")}
           error: jsonSourceFile.parseDiagnostics.length ? jsonSourceFile.parseDiagnostics[0] : void 0
         };
       }
-      function readJsonConfigFile(fileName, readFile17) {
-        const textOrDiagnostic = tryReadFile(fileName, readFile17);
+      function readJsonConfigFile(fileName, readFile20) {
+        const textOrDiagnostic = tryReadFile(fileName, readFile20);
         return isString(textOrDiagnostic) ? parseJsonText(fileName, textOrDiagnostic) : { fileName, parseDiagnostics: [textOrDiagnostic] };
       }
-      function tryReadFile(fileName, readFile17) {
+      function tryReadFile(fileName, readFile20) {
         let text;
         try {
-          text = readFile17(fileName);
+          text = readFile20(fileName);
         } catch (e2) {
           return createCompilerDiagnostic(Diagnostics.Cannot_read_file_0_Colon_1, fileName, e2.message);
         }
@@ -60307,9 +60307,9 @@ ${lanes.join("\n")}
               if (!startsWithDirectory(target, realPathDirectory, getCanonicalFileName)) {
                 return;
               }
-              const relative3 = getRelativePathFromDirectory(realPathDirectory, target, getCanonicalFileName);
+              const relative5 = getRelativePathFromDirectory(realPathDirectory, target, getCanonicalFileName);
               for (const symlinkDirectory of symlinkDirectories) {
-                const option = resolvePath(symlinkDirectory, relative3);
+                const option = resolvePath(symlinkDirectory, relative5);
                 const result2 = cb(option, target === referenceRedirect);
                 shouldFilterIgnoredPaths = true;
                 if (result2) return result2;
@@ -136528,8 +136528,8 @@ ${lanes.join("\n")}
           writeNode(hint, node, sourceFile, beginPrint());
           return endPrint();
         }
-        function printList(format, nodes, sourceFile) {
-          writeList(format, nodes, sourceFile, beginPrint());
+        function printList(format2, nodes, sourceFile) {
+          writeList(format2, nodes, sourceFile, beginPrint());
           return endPrint();
         }
         function printBundle(bundle) {
@@ -136561,7 +136561,7 @@ ${lanes.join("\n")}
           reset2();
           writer = previousWriter;
         }
-        function writeList(format, nodes, sourceFile, output) {
+        function writeList(format2, nodes, sourceFile, output) {
           const previousWriter = writer;
           setWriter(
             output,
@@ -136575,7 +136575,7 @@ ${lanes.join("\n")}
             /*parentNode*/
             void 0,
             nodes,
-            format
+            format2
           );
           reset2();
           writer = previousWriter;
@@ -138163,8 +138163,8 @@ ${lanes.join("\n")}
             /*contextNode*/
             node
           );
-          const format = forceSingleLine || getEmitFlags(node) & 1 ? 768 : 129;
-          emitList(node, node.statements, format);
+          const format2 = forceSingleLine || getEmitFlags(node) & 1 ? 768 : 129;
+          emitList(node, node.statements, format2);
           emitTokenWithComment(
             20,
             node.statements.end,
@@ -138172,7 +138172,7 @@ ${lanes.join("\n")}
             /*contextNode*/
             node,
             /*indentLeading*/
-            !!(format & 1)
+            !!(format2 & 1)
           );
         }
         function emitVariableStatement(node) {
@@ -139141,15 +139141,15 @@ ${lanes.join("\n")}
         function emitCaseOrDefaultClauseRest(parentNode, statements, colonPos) {
           const emitAsSingleStatement = statements.length === 1 && // treat synthesized nodes as located on the same line for emit purposes
           (!currentSourceFile || nodeIsSynthesized(parentNode) || nodeIsSynthesized(statements[0]) || rangeStartPositionsAreOnSameLine(parentNode, statements[0], currentSourceFile));
-          let format = 163969;
+          let format2 = 163969;
           if (emitAsSingleStatement) {
             writeToken(59, colonPos, writePunctuation, parentNode);
             writeSpace();
-            format &= ~(1 | 128);
+            format2 &= ~(1 | 128);
           } else {
             emitTokenWithComment(59, colonPos, writePunctuation, parentNode);
           }
-          emitList(parentNode, statements, format);
+          emitList(parentNode, statements, format2);
         }
         function emitHeritageClause(node) {
           writeSpace();
@@ -139709,8 +139709,8 @@ ${lanes.join("\n")}
             /* IndexSignatureParameters */
           );
         }
-        function writeDelimiter(format) {
-          switch (format & 60) {
+        function writeDelimiter(format2) {
+          switch (format2 & 60) {
             case 0:
               break;
             case 16:
@@ -139731,33 +139731,33 @@ ${lanes.join("\n")}
               break;
           }
         }
-        function emitList(parentNode, children, format, parenthesizerRule, start, count) {
+        function emitList(parentNode, children, format2, parenthesizerRule, start, count) {
           emitNodeList(
             emit,
             parentNode,
             children,
-            format | (parentNode && getEmitFlags(parentNode) & 2 ? 65536 : 0),
+            format2 | (parentNode && getEmitFlags(parentNode) & 2 ? 65536 : 0),
             parenthesizerRule,
             start,
             count
           );
         }
-        function emitExpressionList(parentNode, children, format, parenthesizerRule, start, count) {
-          emitNodeList(emitExpression, parentNode, children, format, parenthesizerRule, start, count);
+        function emitExpressionList(parentNode, children, format2, parenthesizerRule, start, count) {
+          emitNodeList(emitExpression, parentNode, children, format2, parenthesizerRule, start, count);
         }
-        function emitNodeList(emit2, parentNode, children, format, parenthesizerRule, start = 0, count = children ? children.length - start : 0) {
+        function emitNodeList(emit2, parentNode, children, format2, parenthesizerRule, start = 0, count = children ? children.length - start : 0) {
           const isUndefined = children === void 0;
-          if (isUndefined && format & 16384) {
+          if (isUndefined && format2 & 16384) {
             return;
           }
           const isEmpty = children === void 0 || start >= children.length || count === 0;
-          if (isEmpty && format & 32768) {
+          if (isEmpty && format2 & 32768) {
             onBeforeEmitNodeArray == null ? void 0 : onBeforeEmitNodeArray(children);
             onAfterEmitNodeArray == null ? void 0 : onAfterEmitNodeArray(children);
             return;
           }
-          if (format & 15360) {
-            writePunctuation(getOpeningBracket(format));
+          if (format2 & 15360) {
+            writePunctuation(getOpeningBracket(format2));
             if (isEmpty && children) {
               emitTrailingCommentsOfPosition(
                 children.pos,
@@ -139768,33 +139768,33 @@ ${lanes.join("\n")}
           }
           onBeforeEmitNodeArray == null ? void 0 : onBeforeEmitNodeArray(children);
           if (isEmpty) {
-            if (format & 1 && !(preserveSourceNewlines && (!parentNode || currentSourceFile && rangeIsOnSingleLine(parentNode, currentSourceFile)))) {
+            if (format2 & 1 && !(preserveSourceNewlines && (!parentNode || currentSourceFile && rangeIsOnSingleLine(parentNode, currentSourceFile)))) {
               writeLine();
-            } else if (format & 256 && !(format & 524288)) {
+            } else if (format2 & 256 && !(format2 & 524288)) {
               writeSpace();
             }
           } else {
-            emitNodeListItems(emit2, parentNode, children, format, parenthesizerRule, start, count, children.hasTrailingComma, children);
+            emitNodeListItems(emit2, parentNode, children, format2, parenthesizerRule, start, count, children.hasTrailingComma, children);
           }
           onAfterEmitNodeArray == null ? void 0 : onAfterEmitNodeArray(children);
-          if (format & 15360) {
+          if (format2 & 15360) {
             if (isEmpty && children) {
               emitLeadingCommentsOfPosition(children.end);
             }
-            writePunctuation(getClosingBracket(format));
+            writePunctuation(getClosingBracket(format2));
           }
         }
-        function emitNodeListItems(emit2, parentNode, children, format, parenthesizerRule, start, count, hasTrailingComma, childrenTextRange) {
-          const mayEmitInterveningComments = (format & 262144) === 0;
+        function emitNodeListItems(emit2, parentNode, children, format2, parenthesizerRule, start, count, hasTrailingComma, childrenTextRange) {
+          const mayEmitInterveningComments = (format2 & 262144) === 0;
           let shouldEmitInterveningComments = mayEmitInterveningComments;
-          const leadingLineTerminatorCount = getLeadingLineTerminatorCount(parentNode, children[start], format);
+          const leadingLineTerminatorCount = getLeadingLineTerminatorCount(parentNode, children[start], format2);
           if (leadingLineTerminatorCount) {
             writeLine(leadingLineTerminatorCount);
             shouldEmitInterveningComments = false;
-          } else if (format & 256) {
+          } else if (format2 & 256) {
             writeSpace();
           }
-          if (format & 128) {
+          if (format2 & 128) {
             increaseIndent();
           }
           const emitListItem = getEmitListItem(emit2, parenthesizerRule);
@@ -139802,36 +139802,36 @@ ${lanes.join("\n")}
           let shouldDecreaseIndentAfterEmit = false;
           for (let i2 = 0; i2 < count; i2++) {
             const child = children[start + i2];
-            if (format & 32) {
+            if (format2 & 32) {
               writeLine();
-              writeDelimiter(format);
+              writeDelimiter(format2);
             } else if (previousSibling) {
-              if (format & 60 && previousSibling.end !== (parentNode ? parentNode.end : -1)) {
+              if (format2 & 60 && previousSibling.end !== (parentNode ? parentNode.end : -1)) {
                 const previousSiblingEmitFlags = getEmitFlags(previousSibling);
                 if (!(previousSiblingEmitFlags & 2048)) {
                   emitLeadingCommentsOfPosition(previousSibling.end);
                 }
               }
-              writeDelimiter(format);
-              const separatingLineTerminatorCount = getSeparatingLineTerminatorCount(previousSibling, child, format);
+              writeDelimiter(format2);
+              const separatingLineTerminatorCount = getSeparatingLineTerminatorCount(previousSibling, child, format2);
               if (separatingLineTerminatorCount > 0) {
-                if ((format & (3 | 128)) === 0) {
+                if ((format2 & (3 | 128)) === 0) {
                   increaseIndent();
                   shouldDecreaseIndentAfterEmit = true;
                 }
-                if (shouldEmitInterveningComments && format & 60 && !positionIsSynthesized(child.pos)) {
+                if (shouldEmitInterveningComments && format2 & 60 && !positionIsSynthesized(child.pos)) {
                   const commentRange = getCommentRange(child);
                   emitTrailingCommentsOfPosition(
                     commentRange.pos,
                     /*prefixSpace*/
-                    !!(format & 512),
+                    !!(format2 & 512),
                     /*forceNoNewline*/
                     true
                   );
                 }
                 writeLine(separatingLineTerminatorCount);
                 shouldEmitInterveningComments = false;
-              } else if (previousSibling && format & 512) {
+              } else if (previousSibling && format2 & 512) {
                 writeSpace();
               }
             }
@@ -139851,7 +139851,7 @@ ${lanes.join("\n")}
           }
           const emitFlags = previousSibling ? getEmitFlags(previousSibling) : 0;
           const skipTrailingComments = commentsDisabled || !!(emitFlags & 2048);
-          const emitTrailingComma = hasTrailingComma && format & 64 && format & 16;
+          const emitTrailingComma = hasTrailingComma && format2 & 64 && format2 & 16;
           if (emitTrailingComma) {
             if (previousSibling && !skipTrailingComments) {
               emitTokenWithComment(28, previousSibling.end, writePunctuation, previousSibling);
@@ -139859,16 +139859,16 @@ ${lanes.join("\n")}
               writePunctuation(",");
             }
           }
-          if (previousSibling && (parentNode ? parentNode.end : -1) !== previousSibling.end && format & 60 && !skipTrailingComments) {
+          if (previousSibling && (parentNode ? parentNode.end : -1) !== previousSibling.end && format2 & 60 && !skipTrailingComments) {
             emitLeadingCommentsOfPosition(emitTrailingComma && (childrenTextRange == null ? void 0 : childrenTextRange.end) ? childrenTextRange.end : previousSibling.end);
           }
-          if (format & 128) {
+          if (format2 & 128) {
             decreaseIndent();
           }
-          const closingLineTerminatorCount = getClosingLineTerminatorCount(parentNode, children[start + count - 1], format, childrenTextRange);
+          const closingLineTerminatorCount = getClosingLineTerminatorCount(parentNode, children[start + count - 1], format2, childrenTextRange);
           if (closingLineTerminatorCount) {
             writeLine(closingLineTerminatorCount);
-          } else if (format & (2097152 | 256)) {
+          } else if (format2 & (2097152 | 256)) {
             writeSpace();
           }
         }
@@ -139984,9 +139984,9 @@ ${lanes.join("\n")}
             decreaseIndent();
           }
         }
-        function getLeadingLineTerminatorCount(parentNode, firstChild, format) {
-          if (format & 2 || preserveSourceNewlines) {
-            if (format & 65536) {
+        function getLeadingLineTerminatorCount(parentNode, firstChild, format2) {
+          if (format2 & 2 || preserveSourceNewlines) {
+            if (format2 & 65536) {
               return 1;
             }
             if (firstChild === void 0) {
@@ -140011,14 +140011,14 @@ ${lanes.join("\n")}
               }
               return rangeStartPositionsAreOnSameLine(parentNode, firstChild, currentSourceFile) ? 0 : 1;
             }
-            if (synthesizedNodeStartsOnNewLine(firstChild, format)) {
+            if (synthesizedNodeStartsOnNewLine(firstChild, format2)) {
               return 1;
             }
           }
-          return format & 1 ? 1 : 0;
+          return format2 & 1 ? 1 : 0;
         }
-        function getSeparatingLineTerminatorCount(previousNode, nextNode, format) {
-          if (format & 2 || preserveSourceNewlines) {
+        function getSeparatingLineTerminatorCount(previousNode, nextNode, format2) {
+          if (format2 & 2 || preserveSourceNewlines) {
             if (previousNode === void 0 || nextNode === void 0) {
               return 0;
             }
@@ -140037,18 +140037,18 @@ ${lanes.join("\n")}
               } else if (!preserveSourceNewlines && originalNodesHaveSameParent(previousNode, nextNode)) {
                 return rangeEndIsOnSameLineAsRangeStart(previousNode, nextNode, currentSourceFile) ? 0 : 1;
               }
-              return format & 65536 ? 1 : 0;
-            } else if (synthesizedNodeStartsOnNewLine(previousNode, format) || synthesizedNodeStartsOnNewLine(nextNode, format)) {
+              return format2 & 65536 ? 1 : 0;
+            } else if (synthesizedNodeStartsOnNewLine(previousNode, format2) || synthesizedNodeStartsOnNewLine(nextNode, format2)) {
               return 1;
             }
           } else if (getStartsOnNewLine(nextNode)) {
             return 1;
           }
-          return format & 1 ? 1 : 0;
+          return format2 & 1 ? 1 : 0;
         }
-        function getClosingLineTerminatorCount(parentNode, lastChild, format, childrenTextRange) {
-          if (format & 2 || preserveSourceNewlines) {
-            if (format & 65536) {
+        function getClosingLineTerminatorCount(parentNode, lastChild, format2, childrenTextRange) {
+          if (format2 & 2 || preserveSourceNewlines) {
+            if (format2 & 65536) {
               return 1;
             }
             if (lastChild === void 0) {
@@ -140068,11 +140068,11 @@ ${lanes.join("\n")}
               }
               return rangeEndPositionsAreOnSameLine(parentNode, lastChild, currentSourceFile) ? 0 : 1;
             }
-            if (synthesizedNodeStartsOnNewLine(lastChild, format)) {
+            if (synthesizedNodeStartsOnNewLine(lastChild, format2)) {
               return 1;
             }
           }
-          if (format & 1 && !(format & 131072)) {
+          if (format2 & 1 && !(format2 & 131072)) {
             return 1;
           }
           return 0;
@@ -140119,15 +140119,15 @@ ${lanes.join("\n")}
             writeLine(trailingNewlines);
           }
         }
-        function synthesizedNodeStartsOnNewLine(node, format) {
+        function synthesizedNodeStartsOnNewLine(node, format2) {
           if (nodeIsSynthesized(node)) {
             const startsOnNewLine = getStartsOnNewLine(node);
             if (startsOnNewLine === void 0) {
-              return (format & 65536) !== 0;
+              return (format2 & 65536) !== 0;
             }
             return startsOnNewLine;
           }
-          return (format & 65536) !== 0;
+          return (format2 & 65536) !== 0;
         }
         function getLinesBetweenNodes(parent2, node1, node2) {
           if (getEmitFlags(parent2) & 262144) {
@@ -141125,15 +141125,15 @@ ${lanes.join("\n")}
         ] = ["[", "]"];
         return brackets2;
       }
-      function getOpeningBracket(format) {
+      function getOpeningBracket(format2) {
         return brackets[
-          format & 15360
+          format2 & 15360
           /* BracketsMask */
         ][0];
       }
-      function getClosingBracket(format) {
+      function getClosingBracket(format2) {
         return brackets[
-          format & 15360
+          format2 & 15360
           /* BracketsMask */
         ][1];
       }
@@ -141707,12 +141707,12 @@ ${lanes.join("\n")}
       function createCompilerHost(options, setParentNodes) {
         return createCompilerHostWorker(options, setParentNodes);
       }
-      function createGetSourceFile(readFile17, setParentNodes) {
+      function createGetSourceFile(readFile20, setParentNodes) {
         return (fileName, languageVersionOrOptions, onError) => {
           let text;
           try {
             mark("beforeIORead");
-            text = readFile17(fileName);
+            text = readFile20(fileName);
             mark("afterIORead");
             measure("I/O Read", "beforeIORead", "afterIORead");
           } catch (e2) {
@@ -142616,7 +142616,7 @@ ${lanes.join("\n")}
           getRedirectFromOutput,
           forEachResolvedProjectReference: forEachResolvedProjectReference2
         });
-        const readFile17 = host.readFile.bind(host);
+        const readFile20 = host.readFile.bind(host);
         (_e2 = tracing) == null ? void 0 : _e2.push(tracing.Phase.Program, "shouldProgramCreateNewSourceFiles", { hasOldProgram: !!oldProgram });
         const shouldCreateNewSourceFile = shouldProgramCreateNewSourceFiles(oldProgram, options);
         (_f = tracing) == null ? void 0 : _f.pop();
@@ -142842,7 +142842,7 @@ ${lanes.join("\n")}
           shouldTransformImportCall,
           emitBuildInfo,
           fileExists,
-          readFile: readFile17,
+          readFile: readFile20,
           directoryExists,
           getSymlinkCache,
           realpath: (_o = host.realpath) == null ? void 0 : _o.bind(host),
@@ -142982,9 +142982,9 @@ ${lanes.join("\n")}
             /*ignoreCase*/
             false
           )) {
-            const basename2 = getBaseFileName(a2.fileName);
-            if (basename2 === "lib.d.ts" || basename2 === "lib.es6.d.ts") return 0;
-            const name = removeSuffix(removePrefix(basename2, "lib."), ".d.ts");
+            const basename3 = getBaseFileName(a2.fileName);
+            if (basename3 === "lib.d.ts" || basename3 === "lib.es6.d.ts") return 0;
+            const name = removeSuffix(removePrefix(basename3, "lib."), ".d.ts");
             const index = libs.indexOf(name);
             if (index !== -1) return index + 1;
           }
@@ -169933,18 +169933,18 @@ ${newComment.split("\n").map((c2) => ` * ${c2}`).join("\n")}
         function getNavigationTree2(fileName) {
           return getNavigationTree(syntaxTreeCache.getCurrentSourceFile(fileName), cancellationToken);
         }
-        function getSemanticClassifications3(fileName, span, format) {
+        function getSemanticClassifications3(fileName, span, format2) {
           synchronizeHostData();
-          const responseFormat = format || "original";
+          const responseFormat = format2 || "original";
           if (responseFormat === "2020") {
             return getSemanticClassifications2(program, cancellationToken, getValidSourceFile(fileName), span);
           } else {
             return getSemanticClassifications(program.getTypeChecker(), cancellationToken, getValidSourceFile(fileName), program.getClassifiableNames(), span);
           }
         }
-        function getEncodedSemanticClassifications3(fileName, span, format) {
+        function getEncodedSemanticClassifications3(fileName, span, format2) {
           synchronizeHostData();
-          const responseFormat = format || "original";
+          const responseFormat = format2 || "original";
           if (responseFormat === "original") {
             return getEncodedSemanticClassifications(program.getTypeChecker(), cancellationToken, getValidSourceFile(fileName), program.getClassifiableNames(), span);
           } else {
@@ -184878,17 +184878,17 @@ ${newComment.split("\n").map((c2) => ` * ${c2}`).join("\n")}
               completionNodes[completionNodes.length - 1] = factory.replaceDecoratorsAndModifiers(lastNode, presentDecorators.concat(getModifiers(lastNode) || []));
             }
           }
-          const format = 1 | 131072;
+          const format2 = 1 | 131072;
           if (formatContext) {
             insertText = printer.printAndFormatSnippetList(
-              format,
+              format2,
               factory.createNodeArray(completionNodes),
               sourceFile,
               formatContext
             );
           } else {
             insertText = printer.printSnippetList(
-              format,
+              format2,
               factory.createNodeArray(completionNodes),
               sourceFile
             );
@@ -185122,20 +185122,20 @@ ${newComment.split("\n").map((c2) => ` * ${c2}`).join("\n")}
             write();
           }
         }
-        function printSnippetList(format, list, sourceFile) {
-          const unescaped = printUnescapedSnippetList(format, list, sourceFile);
+        function printSnippetList(format2, list, sourceFile) {
+          const unescaped = printUnescapedSnippetList(format2, list, sourceFile);
           return escapes ? ts_textChanges_exports.applyChanges(unescaped, escapes) : unescaped;
         }
-        function printUnescapedSnippetList(format, list, sourceFile) {
+        function printUnescapedSnippetList(format2, list, sourceFile) {
           escapes = void 0;
           writer.clear();
-          printer.writeList(format, list, sourceFile, writer);
+          printer.writeList(format2, list, sourceFile, writer);
           return writer.getText();
         }
-        function printAndFormatSnippetList(format, list, sourceFile, formatContext) {
+        function printAndFormatSnippetList(format2, list, sourceFile, formatContext) {
           const syntheticFile = {
             text: printUnescapedSnippetList(
-              format,
+              format2,
               list,
               sourceFile
             ),
@@ -197401,8 +197401,8 @@ ${options.prefix}` : "\n" : options.prefix
             return change.text;
           }
           const { options = {}, range: { pos } } = change;
-          const format = (n2) => getFormattedTextOfNode(n2, targetSourceFile, sourceFile, pos, options, newLineCharacter, formatContext, validate);
-          const text = change.kind === 2 ? change.nodes.map((n2) => removeSuffix(format(n2), newLineCharacter)).join(((_a3 = change.options) == null ? void 0 : _a3.joiner) || newLineCharacter) : format(change.node);
+          const format2 = (n2) => getFormattedTextOfNode(n2, targetSourceFile, sourceFile, pos, options, newLineCharacter, formatContext, validate);
+          const text = change.kind === 2 ? change.nodes.map((n2) => removeSuffix(format2(n2), newLineCharacter)).join(((_a3 = change.options) == null ? void 0 : _a3.joiner) || newLineCharacter) : format2(change.node);
           const noIndent = options.indentation !== void 0 || getLineStartPositionForPosition(pos, targetSourceFile) === pos ? text : text.replace(/^\s+/, "");
           return (options.prefix || "") + noIndent + (!options.suffix || endsWith(noIndent, options.suffix) ? "" : options.suffix);
         }
@@ -206730,8 +206730,8 @@ ${options.prefix}` : "\n" : options.prefix
             }
           };
           for (const file of files) {
-            const basename2 = getBaseFileName(file);
-            if (basename2 === "package.json" || basename2 === "bower.json") {
+            const basename3 = getBaseFileName(file);
+            if (basename3 === "package.json" || basename3 === "bower.json") {
               createProjectWatcher(
                 file,
                 "FileWatcher"
@@ -210403,8 +210403,8 @@ All files are: ${JSON.stringify(names)}`,
               var _a3;
               const fileOrDirectoryPath = removeIgnoredPath(this.toPath(fileOrDirectory));
               if (!fileOrDirectoryPath) return;
-              const basename2 = getBaseFileName(fileOrDirectoryPath);
-              if (((_a3 = result.affectedModuleSpecifierCacheProjects) == null ? void 0 : _a3.size) && (basename2 === "package.json" || basename2 === "node_modules")) {
+              const basename3 = getBaseFileName(fileOrDirectoryPath);
+              if (((_a3 = result.affectedModuleSpecifierCacheProjects) == null ? void 0 : _a3.size) && (basename3 === "package.json" || basename3 === "node_modules")) {
                 result.affectedModuleSpecifierCacheProjects.forEach((project) => {
                   var _a22;
                   (_a22 = project.getModuleSpecifierCache()) == null ? void 0 : _a22.clear();
@@ -214207,8 +214207,8 @@ Project '${project.projectName}' (${ProjectKind[project.projectKind]}) ${counter
         }
         getEncodedSemanticClassifications(args) {
           const { file, project } = this.getFileAndProject(args);
-          const format = args.format === "2020" ? "2020" : "original";
-          return project.getLanguageService().getEncodedSemanticClassifications(file, args, format);
+          const format2 = args.format === "2020" ? "2020" : "original";
+          return project.getLanguageService().getEncodedSemanticClassifications(file, args, format2);
         }
         getProject(projectFileName) {
           return projectFileName === void 0 ? void 0 : this.projectService.findProject(projectFileName);
@@ -217266,8 +217266,8 @@ async function pathExists(p2) {
 // dist/engine/ecosystems/npm.js
 async function readScripts(cwd) {
   try {
-    const { readFile: readFile17 } = await import("node:fs/promises");
-    const raw = await readFile17((0, import_node_path.join)(cwd, "package.json"), "utf8");
+    const { readFile: readFile20 } = await import("node:fs/promises");
+    const raw = await readFile20((0, import_node_path.join)(cwd, "package.json"), "utf8");
     const pkg = JSON.parse(raw);
     return { build: pkg.scripts?.build, test: pkg.scripts?.test };
   } catch {
@@ -217277,7 +217277,10 @@ async function readScripts(cwd) {
 function parseNpmOutdated(data) {
   if (!data)
     return [];
-  return Object.entries(data).map(([name, v2]) => ({ name, current: v2.current ?? "", wanted: "", latest: v2.latest ?? "" })).filter((o2) => o2.latest && o2.current !== o2.latest);
+  return Object.entries(data).map(([name, v2]) => {
+    const current = v2.current ?? v2.wanted ?? "";
+    return { name, current, wanted: v2.wanted ?? "", latest: v2.latest ?? "" };
+  }).filter((o2) => o2.latest && o2.current !== o2.latest);
 }
 var npmAdapter = {
   id: "npm",
@@ -217309,8 +217312,8 @@ var npmAdapter = {
 var import_node_path2 = require("node:path");
 async function readScripts2(cwd) {
   try {
-    const { readFile: readFile17 } = await import("node:fs/promises");
-    const raw = await readFile17((0, import_node_path2.join)(cwd, "package.json"), "utf8");
+    const { readFile: readFile20 } = await import("node:fs/promises");
+    const raw = await readFile20((0, import_node_path2.join)(cwd, "package.json"), "utf8");
     const pkg = JSON.parse(raw);
     return { build: pkg.scripts?.build, test: pkg.scripts?.test };
   } catch {
@@ -217361,8 +217364,8 @@ var yarnAdapter = {
 var import_node_path3 = require("node:path");
 async function readScripts3(cwd) {
   try {
-    const { readFile: readFile17 } = await import("node:fs/promises");
-    const raw = await readFile17((0, import_node_path3.join)(cwd, "package.json"), "utf8");
+    const { readFile: readFile20 } = await import("node:fs/promises");
+    const raw = await readFile20((0, import_node_path3.join)(cwd, "package.json"), "utf8");
     const pkg = JSON.parse(raw);
     return { build: pkg.scripts?.build, test: pkg.scripts?.test };
   } catch {
@@ -217769,10 +217772,10 @@ var bundlerAdapter = {
   }
 };
 async function pinInGemfile(cwd, name, version, fallback) {
-  const { readFile: readFile17, writeFile: writeFile12 } = await import("node:fs/promises");
+  const { readFile: readFile20, writeFile: writeFile12 } = await import("node:fs/promises");
   try {
     const path2 = (0, import_node_path11.join)(cwd, "Gemfile");
-    const raw = await readFile17(path2, "utf8");
+    const raw = await readFile20(path2, "utf8");
     const re2 = new RegExp(`^(\\s*gem\\s+["']${name}["'])(.*)$`, "m");
     if (re2.test(raw)) {
       const next = raw.replace(re2, `$1, "= ${version}"`);
@@ -218055,9 +218058,9 @@ var mixAdapter = {
     return parseMixOutdated(r2.stdout);
   },
   async install(cwd, name, version) {
-    const { readFile: readFile17, writeFile: writeFile12 } = await import("node:fs/promises");
+    const { readFile: readFile20, writeFile: writeFile12 } = await import("node:fs/promises");
     const path2 = (0, import_node_path15.join)(cwd, "mix.exs");
-    const raw = await readFile17(path2, "utf8");
+    const raw = await readFile20(path2, "utf8");
     const re2 = new RegExp(`(\\{:${name},\\s*)"[^"]+"`);
     if (!re2.test(raw)) {
       return { code: 1, stdout: "", stderr: `could not find :${name} in mix.exs`, combined: `could not find :${name} in mix.exs` };
@@ -218787,9 +218790,9 @@ async function fullDiff(cwd, ref) {
 }
 
 // dist/engine/run.js
-var import_promises22 = require("node:fs/promises");
+var import_promises25 = require("node:fs/promises");
 var import_node_os4 = require("node:os");
-var import_node_path29 = require("node:path");
+var import_node_path32 = require("node:path");
 
 // dist/agent/fixer.js
 var import_promises14 = require("node:fs/promises");
@@ -219294,6 +219297,9 @@ function noFix(tier) {
     description: "no applicable pattern",
     tokensUsed: { inputTokens: 0, outputTokens: 0 }
   };
+}
+function builtinCodemods() {
+  return BUILTIN_CODEMODS;
 }
 function codemodMatchesRange(range, fromMajor, toMajor) {
   if (!range)
@@ -224572,7 +224578,7 @@ var hex_table = (() => {
   return array;
 })();
 var limit = 1024;
-var encode = (str2, _defaultEncoder, charset, _kind, format) => {
+var encode = (str2, _defaultEncoder, charset, _kind, format2) => {
   if (str2.length === 0) {
     return str2;
   }
@@ -224600,7 +224606,7 @@ var encode = (str2, _defaultEncoder, charset, _kind, format) => {
       c2 >= 48 && c2 <= 57 || // 0-9
       c2 >= 65 && c2 <= 90 || // a-z
       c2 >= 97 && c2 <= 122 || // A-Z
-      format === RFC1738 && (c2 === 40 || c2 === 41)) {
+      format2 === RFC1738 && (c2 === 40 || c2 === 41)) {
         arr[arr.length] = segment.charAt(i2);
         continue;
       }
@@ -224687,7 +224693,7 @@ function is_non_nullish_primitive(v2) {
   return typeof v2 === "string" || typeof v2 === "number" || typeof v2 === "boolean" || typeof v2 === "symbol" || typeof v2 === "bigint";
 }
 var sentinel = {};
-function inner_stringify(object, prefix, generateArrayPrefix, commaRoundTrip, allowEmptyArrays, strictNullHandling, skipNulls, encodeDotInKeys, encoder, filter, sort, allowDots, serializeDate, format, formatter, encodeValuesOnly, charset, sideChannel) {
+function inner_stringify(object, prefix, generateArrayPrefix, commaRoundTrip, allowEmptyArrays, strictNullHandling, skipNulls, encodeDotInKeys, encoder, filter, sort, allowDots, serializeDate, format2, formatter, encodeValuesOnly, charset, sideChannel) {
   let obj = object;
   let tmp_sc = sideChannel;
   let step = 0;
@@ -224722,17 +224728,17 @@ function inner_stringify(object, prefix, generateArrayPrefix, commaRoundTrip, al
     if (strictNullHandling) {
       return encoder && !encodeValuesOnly ? (
         // @ts-expect-error
-        encoder(prefix, defaults.encoder, charset, "key", format)
+        encoder(prefix, defaults.encoder, charset, "key", format2)
       ) : prefix;
     }
     obj = "";
   }
   if (is_non_nullish_primitive(obj) || is_buffer(obj)) {
     if (encoder) {
-      const key_value = encodeValuesOnly ? prefix : encoder(prefix, defaults.encoder, charset, "key", format);
+      const key_value = encodeValuesOnly ? prefix : encoder(prefix, defaults.encoder, charset, "key", format2);
       return [
         formatter?.(key_value) + "=" + // @ts-expect-error
-        formatter?.(encoder(obj, defaults.encoder, charset, "value", format))
+        formatter?.(encoder(obj, defaults.encoder, charset, "value", format2))
       ];
     }
     return [formatter?.(prefix) + "=" + formatter?.(String(obj))];
@@ -224787,7 +224793,7 @@ function inner_stringify(object, prefix, generateArrayPrefix, commaRoundTrip, al
       sort,
       allowDots,
       serializeDate,
-      format,
+      format2,
       formatter,
       encodeValuesOnly,
       charset,
@@ -224810,14 +224816,14 @@ function normalize_stringify_options(opts = defaults) {
   if (typeof opts.charset !== "undefined" && opts.charset !== "utf-8" && opts.charset !== "iso-8859-1") {
     throw new TypeError("The charset option must be either utf-8, iso-8859-1, or undefined");
   }
-  let format = default_format;
+  let format2 = default_format;
   if (typeof opts.format !== "undefined") {
     if (!has.call(formatters, opts.format)) {
       throw new TypeError("Unknown format option provided.");
     }
-    format = opts.format;
+    format2 = opts.format;
   }
-  const formatter = formatters[format];
+  const formatter = formatters[format2];
   let filter = defaults.filter;
   if (typeof opts.filter === "function" || is_array2(opts.filter)) {
     filter = opts.filter;
@@ -224849,7 +224855,7 @@ function normalize_stringify_options(opts = defaults) {
     encoder: typeof opts.encoder === "function" ? opts.encoder : defaults.encoder,
     encodeValuesOnly: typeof opts.encodeValuesOnly === "boolean" ? opts.encodeValuesOnly : defaults.encodeValuesOnly,
     filter,
-    format,
+    format: format2,
     formatter,
     serializeDate: typeof opts.serializeDate === "function" ? opts.serializeDate : defaults.serializeDate,
     skipNulls: typeof opts.skipNulls === "boolean" ? opts.skipNulls : defaults.skipNulls,
@@ -231315,8 +231321,8 @@ async function detectEslintConfig(cwd) {
   try {
     const pkgPath = (0, import_node_path25.join)(cwd, "package.json");
     if (await pathExists(pkgPath)) {
-      const { readFile: readFile17 } = await import("node:fs/promises");
-      const pkg = JSON.parse(await readFile17(pkgPath, "utf8"));
+      const { readFile: readFile20 } = await import("node:fs/promises");
+      const pkg = JSON.parse(await readFile20(pkgPath, "utf8"));
       if (pkg.eslintConfig)
         return { kind: "legacy" };
     }
@@ -232405,7 +232411,84 @@ async function readFromGitHead(cwd, path2) {
   });
 }
 
+// dist/engine/verifiers/coverage-hint.js
+var import_promises20 = require("node:fs/promises");
+var import_node_path27 = require("node:path");
+var TEST_FILE_RE = /(^|[/\\])(__tests__|tests?|spec)([/\\])|\.(test|spec)\.[^/\\]+$/i;
+var IGNORE_DIRS2 = /* @__PURE__ */ new Set(["node_modules", ".git", "dist", "build", "coverage", ".next", ".turbo"]);
+var MAX_BYTES = 5e5;
+async function collectTestFiles(cwd) {
+  const out = [];
+  async function walk(dir) {
+    let entries;
+    try {
+      entries = await (0, import_promises20.readdir)(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e2 of entries) {
+      if (IGNORE_DIRS2.has(e2.name))
+        continue;
+      const abs = (0, import_node_path27.join)(dir, e2.name);
+      if (e2.isDirectory()) {
+        await walk(abs);
+        continue;
+      }
+      const rel = (0, import_node_path27.relative)(cwd, abs);
+      if (TEST_FILE_RE.test(rel))
+        out.push(abs);
+    }
+  }
+  await walk(cwd);
+  return out;
+}
+async function findUnreferencedEdits(cwd, editedFiles) {
+  const candidates = editedFiles.filter((f2) => !TEST_FILE_RE.test(f2) && [".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts", ".vue", ".svelte"].includes((0, import_node_path27.extname)(f2)));
+  if (candidates.length === 0)
+    return [];
+  const testFiles = await collectTestFiles(cwd);
+  if (testFiles.length === 0)
+    return [];
+  const unresolved = new Set(candidates);
+  for (const testAbs of testFiles) {
+    if (unresolved.size === 0)
+      break;
+    let content;
+    try {
+      const s2 = await (0, import_promises20.stat)(testAbs);
+      if (s2.size > MAX_BYTES)
+        continue;
+      content = await (0, import_promises20.readFile)(testAbs, "utf8");
+    } catch {
+      return [];
+    }
+    for (const rel of [...unresolved]) {
+      const stem = (0, import_node_path27.basename)(rel, (0, import_node_path27.extname)(rel));
+      const pattern = new RegExp(`['"\`][^'"\`]*[/\\\\]?${escapeRe(stem)}(\\.[a-z]+)?['"\`]`, "i");
+      if (pattern.test(content))
+        unresolved.delete(rel);
+    }
+  }
+  return [...unresolved];
+}
+function escapeRe(s2) {
+  return s2.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 // dist/engine/analyzers/changelog-parser.js
+async function readDigestFromCache(packageName, from, to) {
+  const cache = getCache();
+  await cache.init();
+  const cacheKey = `digest::${packageName}--${from}--${to}`;
+  const cached = await cache.getLlmFix(cacheKey);
+  if (!cached)
+    return null;
+  try {
+    return JSON.parse(cached.edits["__digest__"] ?? "[]");
+  } catch {
+    return null;
+  }
+}
 var DIGEST_PROMPT = (pkg, from, to, changelog) => `You are analyzing release notes for a dependency upgrade. Extract ONLY the breaking changes.
 
 Package: ${pkg}
@@ -232517,42 +232600,881 @@ ${lines.join("\n")}`;
 }
 
 // dist/engine/stats/recorder.js
-var import_promises20 = require("node:fs/promises");
-var import_node_path27 = require("node:path");
+var import_promises21 = require("node:fs/promises");
+var import_node_path28 = require("node:path");
 var import_node_os2 = require("node:os");
 function statsDir() {
-  return process.env.GREENBUMP_STATS_DIR ?? (0, import_node_path27.join)((0, import_node_os2.homedir)(), ".greenbump");
+  return process.env.GREENBUMP_STATS_DIR ?? (0, import_node_path28.join)((0, import_node_os2.homedir)(), ".greenbump");
 }
 function runsPath() {
-  return (0, import_node_path27.join)(statsDir(), "runs.jsonl");
+  return (0, import_node_path28.join)(statsDir(), "runs.jsonl");
 }
 async function recordRun(rec, onLog) {
   try {
-    await (0, import_promises20.mkdir)(statsDir(), { recursive: true });
-    await (0, import_promises20.appendFile)(runsPath(), JSON.stringify(rec) + "\n", "utf8");
+    await (0, import_promises21.mkdir)(statsDir(), { recursive: true });
+    await (0, import_promises21.appendFile)(runsPath(), JSON.stringify(rec) + "\n", "utf8");
   } catch (err) {
     onLog?.(`stats: failed to record run (${err.message})`);
   }
 }
 
 // dist/agent/calllog.js
-var import_promises21 = require("node:fs/promises");
-var import_node_path28 = require("node:path");
+var import_promises22 = require("node:fs/promises");
+var import_node_path29 = require("node:path");
 var import_node_os3 = require("node:os");
 function statsDir2() {
-  return process.env.GREENBUMP_STATS_DIR ?? (0, import_node_path28.join)((0, import_node_os3.homedir)(), ".greenbump");
+  return process.env.GREENBUMP_STATS_DIR ?? (0, import_node_path29.join)((0, import_node_os3.homedir)(), ".greenbump");
 }
 function callsPath() {
-  return (0, import_node_path28.join)(statsDir2(), "llm-calls.jsonl");
+  return (0, import_node_path29.join)(statsDir2(), "llm-calls.jsonl");
 }
 async function recordLlmCall(rec, onLog) {
   try {
-    await (0, import_promises21.mkdir)(statsDir2(), { recursive: true });
-    await (0, import_promises21.appendFile)(callsPath(), JSON.stringify(rec) + "\n", "utf8");
+    await (0, import_promises22.mkdir)(statsDir2(), { recursive: true });
+    await (0, import_promises22.appendFile)(callsPath(), JSON.stringify(rec) + "\n", "utf8");
   } catch (err) {
     onLog?.(`stats: failed to record LLM call (${err.message})`);
   }
 }
+
+// dist/engine/semver-lite.js
+var VERSION_RE = /^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/;
+function parseVersion(input) {
+  const m2 = input.trim().match(VERSION_RE);
+  if (!m2)
+    return null;
+  return {
+    major: Number(m2[1]),
+    minor: Number(m2[2]),
+    patch: Number(m2[3]),
+    prerelease: m2[4] ?? ""
+  };
+}
+function compareVersions(a2, b2) {
+  if (a2.major !== b2.major)
+    return a2.major < b2.major ? -1 : 1;
+  if (a2.minor !== b2.minor)
+    return a2.minor < b2.minor ? -1 : 1;
+  if (a2.patch !== b2.patch)
+    return a2.patch < b2.patch ? -1 : 1;
+  if (a2.prerelease === b2.prerelease)
+    return 0;
+  if (a2.prerelease === "")
+    return 1;
+  if (b2.prerelease === "")
+    return -1;
+  return a2.prerelease < b2.prerelease ? -1 : 1;
+}
+function parsePartial(text) {
+  const t2 = text.trim().replace(/^v/, "");
+  if (t2 === "" || t2 === "*" || t2 === "x" || t2 === "X")
+    return {};
+  const m2 = t2.match(/^(\d+|[xX*])(?:\.(\d+|[xX*]))?(?:\.(\d+|[xX*]))?(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/);
+  if (!m2)
+    return null;
+  const num = (s2) => {
+    if (s2 === void 0 || s2 === "x" || s2 === "X" || s2 === "*")
+      return void 0;
+    return Number(s2);
+  };
+  const major = num(m2[1]);
+  const minor = major === void 0 ? void 0 : num(m2[2]);
+  const patch = minor === void 0 ? void 0 : num(m2[3]);
+  return { major, minor, patch, prerelease: m2[4] };
+}
+function lowerBoundOf(p2) {
+  return { major: p2.major ?? 0, minor: p2.minor ?? 0, patch: p2.patch ?? 0, prerelease: p2.prerelease ?? "" };
+}
+function caretUpper(p2) {
+  const major = p2.major ?? 0;
+  const minor = p2.minor ?? 0;
+  const patch = p2.patch ?? 0;
+  if (major > 0 || p2.minor === void 0)
+    return { major: major + 1, minor: 0, patch: 0, prerelease: "" };
+  if (minor > 0 || p2.patch === void 0)
+    return { major: 0, minor: minor + 1, patch: 0, prerelease: "" };
+  return { major: 0, minor: 0, patch: patch + 1, prerelease: "" };
+}
+function tildeUpper(p2) {
+  const major = p2.major ?? 0;
+  const minor = p2.minor ?? 0;
+  if (p2.minor === void 0)
+    return { major: major + 1, minor: 0, patch: 0, prerelease: "" };
+  return { major, minor: minor + 1, patch: 0, prerelease: "" };
+}
+function bumpLower(side, p2) {
+  return { version: lowerBoundOf(p2), inclusive: side === ">=" };
+}
+function parseComparatorSet(text) {
+  const t2 = text.trim();
+  if (t2 === "")
+    return {};
+  const hyphen = t2.match(/^(\S+)\s+-\s+(\S+)$/);
+  if (hyphen) {
+    const lo = parsePartial(hyphen[1]);
+    const hi = parsePartial(hyphen[2]);
+    if (!lo || !hi)
+      return null;
+    return { lower: { version: lowerBoundOf(lo), inclusive: true }, upper: { version: lowerBoundOf(hi), inclusive: true } };
+  }
+  const set = {};
+  for (const token of t2.split(/\s+/)) {
+    const m2 = token.match(/^(\^|~|>=|<=|>|<|=)?\s*(.+)$/);
+    if (!m2)
+      return null;
+    const op = m2[1] ?? "";
+    const partial = parsePartial(m2[2]);
+    if (!partial)
+      return null;
+    if (partial.prerelease)
+      set.prereleaseBase = lowerBoundOf(partial);
+    switch (op) {
+      case "^": {
+        const lower = { version: lowerBoundOf(partial), inclusive: true };
+        const upper = { version: caretUpper(partial), inclusive: false };
+        set.lower = tighterLower(set.lower, lower);
+        set.upper = tighterUpper(set.upper, upper);
+        break;
+      }
+      case "~": {
+        const lower = { version: lowerBoundOf(partial), inclusive: true };
+        const upper = { version: tildeUpper(partial), inclusive: false };
+        set.lower = tighterLower(set.lower, lower);
+        set.upper = tighterUpper(set.upper, upper);
+        break;
+      }
+      case ">":
+      case ">=": {
+        set.lower = tighterLower(set.lower, bumpLower(op, partial));
+        break;
+      }
+      case "<":
+      case "<=": {
+        const upper = { version: lowerBoundOf(partial), inclusive: op === "<=" };
+        set.upper = tighterUpper(set.upper, upper);
+        break;
+      }
+      case "=": {
+        set.exact = lowerBoundOf(partial);
+        break;
+      }
+      default: {
+        if (partial.major === void 0)
+          break;
+        if (partial.minor === void 0) {
+          set.lower = tighterLower(set.lower, { version: lowerBoundOf(partial), inclusive: true });
+          set.upper = tighterUpper(set.upper, { version: { major: partial.major + 1, minor: 0, patch: 0, prerelease: "" }, inclusive: false });
+        } else if (partial.patch === void 0) {
+          set.lower = tighterLower(set.lower, { version: lowerBoundOf(partial), inclusive: true });
+          set.upper = tighterUpper(set.upper, { version: { major: partial.major, minor: partial.minor + 1, patch: 0, prerelease: "" }, inclusive: false });
+        } else {
+          set.exact = lowerBoundOf(partial);
+        }
+      }
+    }
+  }
+  return set;
+}
+function tighterLower(a2, b2) {
+  if (!a2)
+    return b2;
+  const c2 = compareVersions(a2.version, b2.version);
+  if (c2 === 0)
+    return a2.inclusive && b2.inclusive ? a2 : { version: a2.version, inclusive: false };
+  return c2 < 0 ? b2 : a2;
+}
+function tighterUpper(a2, b2) {
+  if (!a2)
+    return b2;
+  const c2 = compareVersions(a2.version, b2.version);
+  if (c2 === 0)
+    return a2.inclusive && b2.inclusive ? a2 : { version: a2.version, inclusive: false };
+  return c2 > 0 ? b2 : a2;
+}
+function inSet(v2, set) {
+  if (set.exact && compareVersions(v2, set.exact) !== 0)
+    return false;
+  if (set.lower) {
+    const c2 = compareVersions(v2, set.lower.version);
+    if (c2 < 0 || c2 === 0 && !set.lower.inclusive)
+      return false;
+  }
+  if (set.upper) {
+    const c2 = compareVersions(v2, set.upper.version);
+    if (c2 > 0 || c2 === 0 && !set.upper.inclusive)
+      return false;
+  }
+  return true;
+}
+function lowerBoundOfRange(range) {
+  const trimmed = range.trim();
+  if (trimmed === "" || trimmed === "*" || trimmed === "latest" || trimmed === "x")
+    return null;
+  const first = trimmed.split("||")[0].trim();
+  const set = parseComparatorSet(first);
+  if (!set)
+    return null;
+  if (set.exact)
+    return format(set.exact);
+  if (set.lower?.inclusive)
+    return format(set.lower.version);
+  return null;
+}
+function format(v2) {
+  return `${v2.major}.${v2.minor}.${v2.patch}${v2.prerelease ? `-${v2.prerelease}` : ""}`;
+}
+function satisfies(version, range) {
+  const v2 = parseVersion(version);
+  if (!v2)
+    return false;
+  const trimmed = range.trim();
+  if (trimmed === "" || trimmed === "*" || trimmed === "latest" || trimmed === "x")
+    return true;
+  const orSets = trimmed.split("||").map(parseComparatorSet);
+  if (orSets.some((s2) => s2 === null))
+    return true;
+  for (const set of orSets) {
+    if (!inSet(v2, set))
+      continue;
+    if (v2.prerelease) {
+      const base = set.prereleaseBase;
+      if (!base || base.major !== v2.major || base.minor !== v2.minor || base.patch !== v2.patch)
+        continue;
+    }
+    return true;
+  }
+  return false;
+}
+
+// dist/engine/security/osv.js
+function osvEcosystem(pm) {
+  switch (pm) {
+    case "npm":
+    case "yarn":
+    case "pnpm":
+      return "npm";
+    case "pip":
+    case "poetry":
+    case "uv":
+    case "pipenv":
+      return "PyPI";
+    case "cargo":
+      return "crates.io";
+    case "go":
+      return "Go";
+    case "maven":
+    case "gradle":
+      return "Maven";
+    case "composer":
+      return "Packagist";
+    case "bundler":
+      return "RubyGems";
+    case "nuget":
+      return "NuGet";
+    case "pub":
+      return "Pub";
+    case "mix":
+      return "Hex";
+    case "swiftpm":
+      return "SwiftURL";
+    case "conan":
+      return "ConanCenter";
+    default:
+      return null;
+  }
+}
+function severityFromCvss(score) {
+  if (score >= 9)
+    return "critical";
+  if (score >= 7)
+    return "high";
+  if (score >= 4)
+    return "medium";
+  if (score > 0)
+    return "low";
+  return "unknown";
+}
+function normalizeSeverity(databaseSeverity, scores) {
+  const raw = databaseSeverity?.toLowerCase();
+  if (raw) {
+    if (raw === "critical")
+      return "critical";
+    if (raw === "high")
+      return "high";
+    if (raw === "moderate" || raw === "medium")
+      return "medium";
+    if (raw === "low")
+      return "low";
+  }
+  for (const score of scores ?? []) {
+    const n2 = Number(score);
+    if (Number.isFinite(n2))
+      return severityFromCvss(n2);
+  }
+  return "unknown";
+}
+function extractSeverity(v2) {
+  return normalizeSeverity(v2.database_specific?.severity, (v2.severity ?? []).map((s2) => s2.score ?? ""));
+}
+function extractFixedVersions(v2) {
+  const fixed = [];
+  for (const affected of v2.affected ?? []) {
+    for (const range of affected.ranges ?? []) {
+      for (const event of range.events ?? []) {
+        if (event.fixed)
+          fixed.push(event.fixed);
+      }
+    }
+  }
+  return [...new Set(fixed)].filter((f2) => parseVersion(f2) !== null);
+}
+function minimalFix(current, vulns) {
+  const candidates = vulns.flatMap((v2) => v2.fixedVersions).filter((f2) => {
+    const a2 = parseVersion(f2);
+    const b2 = parseVersion(current);
+    return a2 && b2 && compareVersions(a2, b2) > 0;
+  });
+  if (candidates.length === 0)
+    return null;
+  return candidates.sort((a2, b2) => compareVersions(parseVersion(a2), parseVersion(b2)))[0];
+}
+var SEVERITY_RANK = {
+  critical: 0,
+  high: 1,
+  medium: 2,
+  low: 3,
+  unknown: 4
+};
+function compareSeverity(a2, b2) {
+  return SEVERITY_RANK[a2] - SEVERITY_RANK[b2];
+}
+async function queryVulnerabilities(pm, name, version) {
+  const ecosystem = osvEcosystem(pm);
+  if (!ecosystem || !version || !parseVersion(version))
+    return [];
+  let res;
+  try {
+    res = await fetchWithTimeout("https://api.osv.dev/v1/query", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ package: { name, ecosystem }, version })
+    }, 15e3);
+  } catch {
+    return [];
+  }
+  if (!res.ok)
+    return [];
+  let data;
+  try {
+    data = await res.json();
+  } catch {
+    return [];
+  }
+  return (data.vulns ?? []).map((v2) => ({
+    id: v2.id ?? "unknown",
+    summary: v2.summary ?? "",
+    severity: extractSeverity(v2),
+    aliases: v2.aliases ?? [],
+    fixedVersions: extractFixedVersions(v2),
+    url: v2.references?.find((r2) => r2.type === "ADVISORY")?.url ?? (v2.id ? `https://osv.dev/vulnerability/${v2.id}` : "")
+  }));
+}
+function sortBySeverity(vulns) {
+  return [...vulns].sort((a2, b2) => compareSeverity(a2.severity, b2.severity));
+}
+
+// dist/engine/security/scan.js
+async function scanOutdatedForVulns(pm, outdated2, opts = {}) {
+  const limit2 = opts.limit ?? 40;
+  const concurrency = Math.max(1, opts.concurrency ?? 5);
+  const todo = outdated2.slice(0, limit2);
+  const findings = [];
+  let done = 0;
+  let cursor = 0;
+  async function worker() {
+    for (; ; ) {
+      const i2 = cursor++;
+      if (i2 >= todo.length)
+        return;
+      const dep = todo[i2];
+      const vulns = await queryVulnerabilities(pm, dep.name, dep.current);
+      done++;
+      opts.onProgress?.(done, todo.length, dep.name);
+      if (vulns.length > 0) {
+        const sorted = sortBySeverity(vulns);
+        findings.push({
+          name: dep.name,
+          current: dep.current,
+          latest: dep.latest,
+          worst: sorted[0],
+          vulns: sorted,
+          minimalFix: minimalFix(dep.current, sorted)
+        });
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, todo.length) }, worker));
+  return findings.sort((a2, b2) => {
+    const bySeverity = compareSeverity(a2.worst.severity, b2.worst.severity);
+    if (bySeverity !== 0)
+      return bySeverity;
+    if (a2.vulns.length !== b2.vulns.length)
+      return b2.vulns.length - a2.vulns.length;
+    return a2.name.localeCompare(b2.name);
+  });
+}
+
+// dist/engine/peers.js
+var import_promises23 = require("node:fs/promises");
+var import_node_path30 = require("node:path");
+var NPM_FAMILY = /* @__PURE__ */ new Set(["npm", "yarn", "pnpm"]);
+async function readDirectDeps(cwd) {
+  let raw;
+  try {
+    raw = await (0, import_promises23.readFile)((0, import_node_path30.join)(cwd, "package.json"), "utf8");
+  } catch {
+    return {};
+  }
+  let pkg;
+  try {
+    pkg = JSON.parse(raw);
+  } catch {
+    return {};
+  }
+  const out = {};
+  for (const field of ["dependencies", "devDependencies", "peerDependencies", "optionalDependencies"]) {
+    for (const [name, range] of Object.entries(pkg[field] ?? {})) {
+      if (out[name])
+        continue;
+      const concrete = lowerBoundOfRange(range) ?? range.replace(/^[\^~>=<\s]+/, "").trim();
+      if (parseVersion(concrete))
+        out[name] = concrete;
+    }
+  }
+  return out;
+}
+async function fetchPeerDependencies(packageName, version) {
+  try {
+    const res = await fetchWithTimeout(`https://registry.npmjs.org/${encodeURIComponent(packageName)}/${encodeURIComponent(version)}`, { headers: { Accept: "application/json" } }, 1e4);
+    if (!res.ok)
+      return null;
+    const data = await res.json();
+    const optional = new Set(Object.entries(data.peerDependenciesMeta ?? {}).filter(([, meta]) => meta?.optional).map(([name]) => name));
+    return { required: data.peerDependencies ?? {}, optional };
+  } catch {
+    return null;
+  }
+}
+function computePeerConflicts(required, optional, direct) {
+  const conflicts = [];
+  for (const [name, range] of Object.entries(required)) {
+    if (optional.has(name))
+      continue;
+    const current = direct[name] ?? null;
+    if (current === null) {
+      conflicts.push({ name, required: range, current: null, resolution: "missing" });
+      continue;
+    }
+    if (satisfies(current, range))
+      continue;
+    const suggested = lowerBoundOfRange(range);
+    conflicts.push({
+      name,
+      required: range,
+      current,
+      resolution: suggested ? "upgrade" : "unknown",
+      ...suggested ? { suggested } : {}
+    });
+  }
+  return conflicts;
+}
+async function findPeerConflicts(cwd, pm, packageName, version) {
+  if (!NPM_FAMILY.has(pm))
+    return [];
+  const peers = await fetchPeerDependencies(packageName, version);
+  if (!peers)
+    return [];
+  const direct = await readDirectDeps(cwd);
+  return computePeerConflicts(peers.required, peers.optional, direct);
+}
+
+// dist/engine/scan/probes.js
+var REQUIRES_IMPORT_PREFIX = "__requiresImport:";
+function probesFromChange(change, depName, changeIndex) {
+  const probes = [];
+  const oldApi = change.oldApi;
+  const primary = oldApi.split("(")[0].trim();
+  if (primary.length >= 4) {
+    const isBareIdentifier = /^[a-zA-Z_$][\w$]*$/.test(primary);
+    probes.push({
+      key: `${depName}:${changeIndex}:primary`,
+      pattern: escapeRegExpLiteral(primary),
+      approx: false,
+      refs: [{ depName, changeIndex }],
+      // Bare identifiers like `describe` are too noisy — only search in files
+      // that import the package (resolved per file by the indexer).
+      ...isBareIdentifier ? { fileFilter: `${REQUIRES_IMPORT_PREFIX}${depName}` } : {}
+    });
+    return probes;
+  }
+  const members = oldApi.match(/\.[a-zA-Z_$][\w$]*/g) || [];
+  if (members.length > 0) {
+    const longest = members.reduce((a2, b2) => a2.length > b2.length ? a2 : b2);
+    probes.push({
+      key: `${depName}:${changeIndex}:member`,
+      pattern: escapeRegExpLiteral(longest),
+      approx: true,
+      refs: [{ depName, changeIndex }]
+    });
+  }
+  return probes;
+}
+function probesFromCodemod(codemod, depName, changeIndex) {
+  if (!codemod.transform)
+    return [];
+  return [
+    {
+      key: `${depName}:${changeIndex}:codemod`,
+      pattern: codemod.transform.find,
+      fileFilter: codemod.transform.fileFilter,
+      approx: false,
+      refs: [{ depName, changeIndex }]
+    }
+  ];
+}
+var NODE_RUNTIME_PACKAGES = /* @__PURE__ */ new Set(["node", "nodejs", "@types/node"]);
+function codemodsForUpgrade(packageName, fromVersion, toVersion) {
+  const fromMajor = parseMajor(fromVersion);
+  const toMajor = parseMajor(toVersion);
+  const matched = builtinCodemods().filter((c2) => {
+    if (c2.package === "*") {
+      if (!NODE_RUNTIME_PACKAGES.has(packageName))
+        return false;
+    } else if (c2.package !== packageName) {
+      return false;
+    }
+    return codemodMatchesRange(c2.versionRange, fromMajor, toMajor);
+  });
+  const seen = /* @__PURE__ */ new Set();
+  return matched.filter((c2) => {
+    const key = c2.transform?.find ?? `guidance:${c2.description}`;
+    if (seen.has(key))
+      return false;
+    seen.add(key);
+    return true;
+  });
+}
+function escapeRegExpLiteral(s2) {
+  return s2.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// dist/engine/scan/detect.js
+async function detectForOutdated(cwd, o2, noCache) {
+  const codemods = codemodsForUpgrade(o2.name, o2.current, o2.latest);
+  const digest = noCache ? null : await readDigestFromCache(o2.name, o2.current, o2.latest);
+  const probes = [];
+  const changesMetadata = [];
+  const fileCreations = [];
+  let changeIndex = 0;
+  for (const codemod of codemods) {
+    if (codemod.transform) {
+      const codemodProbes = probesFromCodemod(codemod, o2.name, changeIndex);
+      probes.push(...codemodProbes);
+      changesMetadata.push({
+        description: codemod.description,
+        oldApi: codemod.transform.find,
+        newApi: codemod.transform.replace,
+        severity: "high",
+        // codemods are known breakages
+        source: "builtin-codemod",
+        rewrite: codemod.transform.replace
+      });
+    }
+    if (codemod.creates) {
+      for (const create of codemod.creates) {
+        fileCreations.push({
+          path: create.path,
+          note: `will be created by codemod: ${codemod.description}`
+        });
+      }
+    }
+    if (!codemod.transform && !codemod.creates) {
+      changesMetadata.push({
+        description: codemod.description,
+        oldApi: "",
+        severity: "medium",
+        source: "builtin-codemod"
+      });
+    }
+    changeIndex++;
+  }
+  if (digest && digest.length > 0) {
+    for (const change of digest) {
+      const changeProbes = probesFromChange(change, o2.name, changeIndex);
+      probes.push(...changeProbes);
+      changesMetadata.push({
+        description: change.description,
+        oldApi: change.oldApi,
+        newApi: change.newApi,
+        severity: change.severity,
+        source: "changelog-cache"
+      });
+      changeIndex++;
+    }
+  }
+  let status;
+  let kind2;
+  if (codemods.length > 0 && digest && digest.length > 0) {
+    kind2 = "both";
+    status = "ok";
+  } else if (codemods.length > 0) {
+    kind2 = "codemod";
+    status = codemods.some((c2) => c2.transform || c2.creates) ? "ok" : "info-only";
+  } else if (digest && digest.length > 0) {
+    kind2 = "digest";
+    status = "ok";
+  } else {
+    kind2 = "codemod";
+    status = "unknown";
+  }
+  return {
+    name: o2.name,
+    current: o2.current,
+    latest: o2.latest,
+    workspacePath: o2.workspacePath,
+    kind: kind2,
+    status,
+    probes,
+    changesMetadata,
+    fileCreations
+  };
+}
+
+// dist/engine/scan/indexer.js
+var import_promises24 = require("node:fs/promises");
+var import_node_path31 = require("node:path");
+var IGNORE_DIRS3 = /* @__PURE__ */ new Set(["node_modules", ".git", "dist", "build", ".next", "coverage", ".turbo"]);
+var SEARCHABLE_EXT2 = /* @__PURE__ */ new Set([
+  ".js",
+  ".jsx",
+  ".mjs",
+  ".cjs",
+  ".ts",
+  ".tsx",
+  ".mts",
+  ".cts",
+  ".json",
+  ".vue",
+  ".svelte"
+]);
+var MAX_FILE_SIZE2 = 1e6;
+async function scanOnce(cwd, probes, opts) {
+  const hits = [];
+  const truncatedProbes = /* @__PURE__ */ new Set();
+  const probeHitsCount = /* @__PURE__ */ new Map();
+  const compiled = [];
+  for (const probe of probes) {
+    probeHitsCount.set(probe.key, 0);
+    let re2;
+    try {
+      re2 = new RegExp(probe.pattern, "g");
+    } catch {
+      re2 = new RegExp(escapeRegExpLiteral(probe.pattern), "g");
+    }
+    compiled.push({ probe, re: re2 });
+  }
+  async function walk(dir) {
+    let entries;
+    try {
+      entries = await (0, import_promises24.readdir)(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e2 of entries) {
+      if (IGNORE_DIRS3.has(e2.name))
+        continue;
+      const abs = (0, import_node_path31.join)(dir, e2.name);
+      if (e2.isDirectory()) {
+        await walk(abs);
+        continue;
+      }
+      const dot = e2.name.lastIndexOf(".");
+      if (dot < 0 || !SEARCHABLE_EXT2.has(e2.name.slice(dot)))
+        continue;
+      if (isSensitivePath(e2.name))
+        continue;
+      let content;
+      try {
+        const s2 = await (0, import_promises24.stat)(abs);
+        if (s2.size > MAX_FILE_SIZE2)
+          continue;
+        content = await (0, import_promises24.readFile)(abs, "utf8");
+      } catch {
+        continue;
+      }
+      const rel = (0, import_node_path31.relative)(cwd, abs);
+      const importsHere = /* @__PURE__ */ new Set();
+      for (const m2 of content.matchAll(/(?:from|require\()\s*['"]([^'"]+)['"]/g)) {
+        importsHere.add(m2[1]);
+      }
+      const lines = content.split("\n");
+      for (const { probe, re: re2 } of compiled) {
+        if ((probeHitsCount.get(probe.key) ?? 0) >= opts.perProbeCap) {
+          truncatedProbes.add(probe.key);
+          continue;
+        }
+        if (probe.fileFilter) {
+          if (probe.fileFilter.startsWith(REQUIRES_IMPORT_PREFIX)) {
+            const pkg = probe.fileFilter.slice(REQUIRES_IMPORT_PREFIX.length);
+            if (!importsHere.has(pkg))
+              continue;
+          } else if (!rel.includes(probe.fileFilter)) {
+            continue;
+          }
+        }
+        for (let i2 = 0; i2 < lines.length; i2++) {
+          const line = lines[i2];
+          re2.lastIndex = 0;
+          let match;
+          while ((match = re2.exec(line)) !== null) {
+            hits.push({
+              probeKey: probe.key,
+              file: rel,
+              line: i2 + 1,
+              excerpt: line.trim().slice(0, 200)
+            });
+            const n2 = (probeHitsCount.get(probe.key) ?? 0) + 1;
+            probeHitsCount.set(probe.key, n2);
+            if (n2 >= opts.perProbeCap) {
+              truncatedProbes.add(probe.key);
+              break;
+            }
+            if (match.index === re2.lastIndex)
+              re2.lastIndex++;
+          }
+          if ((probeHitsCount.get(probe.key) ?? 0) >= opts.perProbeCap)
+            break;
+        }
+      }
+    }
+  }
+  await walk(cwd);
+  return { hits, truncatedProbes };
+}
+
+// dist/engine/scan/impact.js
+async function buildScanReport(cwd, outdated2, opts = {}) {
+  const maxPerChange = opts.maxPerChange ?? 200;
+  const pendingDetections = await Promise.all(outdated2.map((o2) => detectForOutdated(cwd, o2, opts.noCache ?? false)));
+  const allProbes = [];
+  for (const detection of pendingDetections) {
+    allProbes.push(...detection.probes);
+  }
+  const { hits, truncatedProbes } = await scanOnce(cwd, allProbes, { perProbeCap: maxPerChange });
+  const detections = pendingDetections.map((pending) => {
+    const changeHits = /* @__PURE__ */ new Map();
+    for (const hit of hits) {
+      const probe = pending.probes.find((p2) => p2.key === hit.probeKey);
+      if (!probe)
+        continue;
+      const changeIndex = probe.refs[0]?.changeIndex;
+      if (changeIndex === void 0)
+        continue;
+      if (!changeHits.has(changeIndex)) {
+        changeHits.set(changeIndex, []);
+      }
+      changeHits.get(changeIndex).push(hit);
+    }
+    const changes = pending.changesMetadata.map((meta, idx) => {
+      const changeHitsList = changeHits.get(idx) ?? [];
+      const truncated = pending.probes.filter((p2) => p2.refs[0]?.changeIndex === idx).some((p2) => truncatedProbes.has(p2.key));
+      const fileMap = /* @__PURE__ */ new Map();
+      for (const hit of changeHitsList) {
+        if (!fileMap.has(hit.file)) {
+          fileMap.set(hit.file, []);
+        }
+        fileMap.get(hit.file).push(hit);
+      }
+      const fileGroups = Array.from(fileMap.entries()).map(([file, locations]) => ({
+        file,
+        locations: locations.map((l2) => ({ file: l2.file, line: l2.line, excerpt: l2.excerpt })),
+        shown: Math.min(locations.length, 20),
+        totalInFile: locations.length
+      }));
+      const approx = pending.probes.filter((p2) => p2.refs[0]?.changeIndex === idx).some((p2) => p2.approx);
+      return {
+        description: meta.description,
+        oldApi: meta.oldApi,
+        newApi: meta.newApi,
+        severity: meta.severity,
+        source: meta.source,
+        rewrite: meta.rewrite,
+        fileGroups,
+        truncated,
+        matches: changeHitsList.length,
+        ...approx ? { approx: true } : {}
+      };
+    });
+    const allFiles = /* @__PURE__ */ new Set();
+    let totalLocations = 0;
+    for (const change of changes) {
+      for (const fg of change.fileGroups) {
+        allFiles.add(fg.file);
+        totalLocations += fg.totalInFile;
+      }
+    }
+    const hasApprox = changes.some((c2) => c2.approx);
+    const status = pending.status === "unknown" || pending.status === "info-only" ? pending.status : hasApprox ? "approx" : "ok";
+    return {
+      name: pending.name,
+      current: pending.current,
+      latest: pending.latest,
+      workspacePath: pending.workspacePath,
+      kind: pending.kind,
+      status,
+      changes,
+      ...pending.fileCreations.length > 0 ? { fileCreations: pending.fileCreations } : {},
+      filesMatched: allFiles.size,
+      locationsMatched: totalLocations,
+      displayedImpact: changes.length > 0 && totalLocations > 0,
+      truncated: pending.probes.some((p2) => truncatedProbes.has(p2.key))
+    };
+  });
+  const allAffectedFiles = /* @__PURE__ */ new Set();
+  let totalLocationsAffected = 0;
+  let depsWithKnownBreaking = 0;
+  let anyTruncated = false;
+  for (const d2 of detections) {
+    if (d2.status === "ok" || d2.status === "approx") {
+      depsWithKnownBreaking++;
+      for (const change of d2.changes) {
+        for (const fg of change.fileGroups) {
+          allAffectedFiles.add(fg.file);
+          totalLocationsAffected += fg.totalInFile;
+        }
+      }
+    }
+    if (d2.truncated)
+      anyTruncated = true;
+  }
+  return {
+    schemaVersion: 1,
+    cwd,
+    packageManager: "",
+    // filled by caller
+    summary: {
+      depsScanned: outdated2.length,
+      depsWithKnownBreaking,
+      filesAffected: allAffectedFiles.size,
+      locationsAffected: totalLocationsAffected,
+      truncated: anyTruncated
+    },
+    detections
+  };
+}
+
+// dist/engine/workspace.js
+var WORKSPACE_ROOT = ".";
 
 // dist/engine/run.js
 var RunError = class extends Error {
@@ -232618,7 +233540,26 @@ async function run(opts) {
   if (outdated2.length === 0) {
     throw new RunError("No outdated dependencies found \u2014 nothing to upgrade.");
   }
-  const target = opts.dep ? outdated2.find((o2) => o2.name === opts.dep) : outdated2[0];
+  let vulnFindings = [];
+  if (opts.security) {
+    log("checking outdated dependencies for known advisories (osv.dev)\u2026");
+    vulnFindings = await scanOutdatedForVulns(pm, outdated2, {
+      onProgress: (done, total) => {
+        if (done === total)
+          log(`checked ${total} dependenc${total === 1 ? "y" : "ies"}`);
+      }
+    });
+    if (vulnFindings.length > 0) {
+      const worst = vulnFindings[0];
+      log(`${vulnFindings.length} dependenc${vulnFindings.length === 1 ? "y" : "ies"} with known advisories \u2014 worst: ${worst.name} (${worst.worst.severity})`);
+      for (const f2 of vulnFindings.slice(0, 5)) {
+        log(`  ${f2.worst.severity.padEnd(8)} ${f2.name}@${f2.current} \u2014 ${f2.worst.id}`);
+      }
+    } else {
+      log("no known advisories in outdated dependencies \u2014 falling back to most-outdated selection");
+    }
+  }
+  const target = opts.dep ? outdated2.find((o2) => o2.name === opts.dep) : opts.security && vulnFindings.length > 0 ? { name: vulnFindings[0].name, current: vulnFindings[0].current, wanted: "", latest: vulnFindings[0].latest } : outdated2[0];
   if (!target) {
     throw new RunError(`\`${opts.dep}\` is not outdated (or not a direct dependency). Available: ${outdated2.map((o2) => o2.name).join(", ")}`);
   }
@@ -232637,7 +233578,7 @@ async function run(opts) {
     baseBranch = await currentBranch(cwd);
     branch = `greenbump/${target.name.replace(/[^a-zA-Z0-9._-]/g, "-")}-${to}`;
     if (opts.worktree) {
-      worktreeDir = await (0, import_promises22.mkdtemp)((0, import_node_path29.join)((0, import_node_os4.tmpdir)(), "greenbump-wt-"));
+      worktreeDir = await (0, import_promises25.mkdtemp)((0, import_node_path32.join)((0, import_node_os4.tmpdir)(), "greenbump-wt-"));
       await addWorktree(cwd, worktreeDir, branch);
       effectiveCwd = worktreeDir;
       log(`created isolated worktree in ${worktreeDir} on branch ${branch}`);
@@ -232658,13 +233599,14 @@ async function run(opts) {
       baseBranch,
       startedAt,
       log,
-      checkOverrides
+      checkOverrides,
+      vulnFindings
     });
   } finally {
     if (worktreeDir) {
       await removeWorktree(cwd, worktreeDir, true).catch(() => {
       });
-      await (0, import_promises22.rm)(worktreeDir, { recursive: true, force: true }).catch(() => {
+      await (0, import_promises25.rm)(worktreeDir, { recursive: true, force: true }).catch(() => {
       });
       log(`cleaned up isolated worktree`);
     }
@@ -232673,6 +233615,7 @@ async function run(opts) {
 async function runInContext(args) {
   const { cwd, pm, target, from, to, branch, baseBranch, startedAt, log, checkOverrides } = args;
   const opts = args;
+  const vulnsForTarget = args.vulnFindings?.find((f2) => f2.name === target.name)?.vulns ?? [];
   let perfBaseline;
   if (opts.detectRegressions) {
     log("capturing performance baseline\u2026");
@@ -232690,11 +233633,35 @@ async function runInContext(args) {
     throw new RunError(`Baseline is already failing (${baseline.failedStep}) before any upgrade. Fix that first \u2014 greenbump can't tell your pre-existing failures from upgrade breakage.`);
   }
   const baselineGreen = baseline.ok && !baseline.unverifiable;
+  const coUpgraded = [];
+  if (opts.coUpgradePeers !== false) {
+    const conflicts = await findPeerConflicts(cwd, pm, target.name, to);
+    for (const c2 of conflicts) {
+      if (c2.resolution === "missing") {
+        log(`peer: ${c2.name} is required by ${target.name}@${to} (${c2.required}) but is not a direct dependency \u2014 ${pm} may install it automatically`);
+        continue;
+      }
+      if (c2.resolution === "unknown" || !c2.suggested) {
+        log(`peer: ${c2.name}@${c2.current} does not satisfy ${c2.required}, and no single version could be derived`);
+        continue;
+      }
+      log(`peer: co-upgrading ${c2.name} ${c2.current} \u2192 ${c2.suggested} (required by ${target.name}@${to}: ${c2.required})`);
+      const peerUp = await upgradeDependency(pm, cwd, c2.name, c2.suggested);
+      if (peerUp.ok) {
+        coUpgraded.push({ name: c2.name, from: c2.current ?? "", to: c2.suggested });
+      } else {
+        log(`peer: could not co-upgrade ${c2.name} \u2014 continuing, the package manager may still resolve it`);
+      }
+    }
+  }
   log(`installing ${target.name}@${to}\u2026`);
   const up = await upgradeDependency(pm, cwd, target.name, to);
   if (!up.ok) {
+    const peerHint = coUpgraded.length > 0 ? `
+
+(peer dependencies were already co-upgraded: ${coUpgraded.map((p2) => `${p2.name}@${p2.to}`).join(", ")})` : "";
     throw new RunError(`${pm} failed to install ${target.name}@${to}:
-${up.output}`);
+${up.output}${peerHint}`);
   }
   const post = await runChecks(pm, cwd, checkOverrides);
   const summary = {
@@ -232714,7 +233681,15 @@ ${up.output}`);
     usage: { inputTokens: 0, outputTokens: 0 },
     editedFiles: [],
     testFilesTouched: [],
-    durationMs: 0
+    durationMs: 0,
+    ...coUpgraded.length > 0 ? { coUpgraded } : {},
+    ...vulnsForTarget.length > 0 ? {
+      vulnerabilities: vulnsForTarget.map((v2) => ({
+        id: v2.id,
+        severity: v2.severity,
+        summary: v2.summary
+      }))
+    } : {}
   };
   if (post.unverifiable) {
     log("no build/test scripts \u2014 upgrade applied but UNVERIFIED");
@@ -232732,6 +233707,14 @@ ${up.output}`);
     return summary;
   }
   summary.neededFix = true;
+  try {
+    const impact = await computeImpact(cwd, target, to);
+    if (impact.knownChanges > 0) {
+      summary.impact = impact;
+      log(`impact: ${impact.knownChanges} known breaking change(s) for this path, ${impact.affectedChanges} touch this codebase (${impact.filesAffected} file(s), ${impact.locations} location(s))`);
+    }
+  } catch {
+  }
   let changelog = await fetchChangelog(target.name, from, to, { cache: !opts.noCache });
   if (changelog)
     log(`found changelog/release notes for ${target.name}`);
@@ -232816,6 +233799,13 @@ ${changelog.slice(0, 2e3)}`;
     summary.needsReview = true;
     summary.suspiciousChanges = suspiciousChanges.map((c2) => `${c2.type}: ${c2.file} - ${c2.description}`);
   }
+  if (fix.fixed && fix.editedFiles.length > 0) {
+    const unreferenced = await findUnreferencedEdits(cwd, fix.editedFiles);
+    if (unreferenced.length > 0) {
+      summary.unverifiedEdits = unreferenced;
+      log(`\u26A0\uFE0F  ${unreferenced.length} edited file(s) are not referenced by any test \u2014 a green build confirms they compile, not that they work`);
+    }
+  }
   if (opts.astAnalysis !== false && fix.fixed && fix.editedFiles.length > 0) {
     log("analyzing API surface changes\u2026");
     const astResult = await analyzeApiChanges(cwd, fix.editedFiles, (p2) => readFromGitHead(cwd, p2));
@@ -232876,6 +233866,23 @@ ${changelog.slice(0, 2e3)}`;
   await recordRun(summaryToRecord(summary, provider.model), log);
   return summary;
 }
+async function computeImpact(cwd, target, to) {
+  const entry = {
+    name: target.name,
+    current: target.current,
+    wanted: "",
+    latest: to,
+    workspacePath: WORKSPACE_ROOT
+  };
+  const report = await buildScanReport(cwd, [entry]);
+  const det = report.detections[0];
+  return {
+    knownChanges: det?.changes.length ?? 0,
+    affectedChanges: det?.changes.filter((c2) => c2.matches > 0).length ?? 0,
+    filesAffected: det?.filesMatched ?? 0,
+    locations: det?.locationsMatched ?? 0
+  };
+}
 async function maybeCommit(cwd, summary, shouldCommit) {
   if (!summary.branch || !shouldCommit)
     return;
@@ -232924,6 +233931,10 @@ function renderPrBody(s2) {
   } else {
     lines.push(`\u274C The upgrade broke the build/tests and greenbump **could not fully fix it** within ${s2.rounds} rounds. Changes are left on the branch for you to finish.`);
   }
+  if (s2.unverifiedEdits && s2.unverifiedEdits.length > 0) {
+    lines.push("");
+    lines.push(`> \u26A0\uFE0F **Partial verification** \u2014 no test file references the edited file(s) below, so a green build proves they still compile, not that they behave correctly: ${s2.unverifiedEdits.map((f2) => `\`${f2}\``).join(", ")}`);
+  }
   if (s2.neededFix && s2.testFilesTouched.length > 0) {
     lines.push("");
     lines.push(`> \u{1F6A8} **Review closely** \u2014 the fix agent modified test file(s), which greenbump normally avoids: ${s2.testFilesTouched.map((f2) => `\`${f2}\``).join(", ")}`);
@@ -232955,9 +233966,39 @@ function renderPrBody(s2) {
   lines.push("<sub>\u{1F331} Automated by [greenbump](https://github.com/shidesheng0218/greenbump).</sub>");
   return lines.join("\n");
 }
+function renderImpactComment(s2) {
+  const parts = [];
+  if (s2.impact && s2.impact.knownChanges > 0) {
+    const { knownChanges, affectedChanges, filesAffected, locations } = s2.impact;
+    parts.push(`### \u{1F50D} Impact on this repository
+
+**${knownChanges}** breaking change${knownChanges === 1 ? "" : "s"} are known for \`${s2.dep}\` ${s2.from} \u2192 ${s2.to}; **${affectedChanges}** of them touch this codebase` + (affectedChanges > 0 ? ` (${filesAffected} file${filesAffected === 1 ? "" : "s"}, ${locations} location${locations === 1 ? "" : "s"}).` : `.`));
+    if (affectedChanges === 0) {
+      parts.push(`_This upgrade did not require any code changes for the breaking changes we could detect._`);
+    }
+  }
+  if (s2.coUpgraded && s2.coUpgraded.length > 0) {
+    parts.push(`### \u{1F517} Peer dependencies moved along
+
+` + s2.coUpgraded.map((p2) => `- \`${p2.name}\` ${p2.from} \u2192 ${p2.to}`).join("\n") + `
+
+_These were required by \`${s2.dep}@${s2.to}\`; the install would fail without them._`);
+  }
+  if (s2.vulnerabilities && s2.vulnerabilities.length > 0) {
+    parts.push(`### \u{1F512} Advisories on the previous version
+
+` + s2.vulnerabilities.slice(0, 10).map((v2) => `- \`${v2.id}\` **${v2.severity}** \u2014 ${v2.summary}`).join("\n") + `
+
+_Resolved by upgrading to ${s2.to}._`);
+  }
+  if (parts.length === 0)
+    return null;
+  parts.push(`<sub>Analysis by greenbump \u2014 deterministic, no model was used to produce this summary.</sub>`);
+  return parts.join("\n\n");
+}
 
 // dist/report.js
-var import_promises23 = require("node:fs/promises");
+var import_promises26 = require("node:fs/promises");
 var REPORT_SCHEMA_VERSION = 1;
 function buildReport(runs) {
   return {
@@ -232967,7 +234008,7 @@ function buildReport(runs) {
   };
 }
 async function writeReport(path2, envelope) {
-  await (0, import_promises23.writeFile)(path2, JSON.stringify(envelope, null, 2) + "\n", "utf8");
+  await (0, import_promises26.writeFile)(path2, JSON.stringify(envelope, null, 2) + "\n", "utf8");
 }
 
 // dist/action/github.js
@@ -233021,7 +234062,31 @@ async function createPullRequest(args) {
   if (args.labels?.length && data.number) {
     await addLabels(args, data.number, args.labels);
   }
-  return data.html_url ?? null;
+  if (!data.html_url || !data.number)
+    return null;
+  return { url: data.html_url, number: data.number };
+}
+async function addIssueComment(args) {
+  try {
+    const res = await fetch(`https://api.github.com/repos/${args.owner}/${args.repo}/issues/${args.issueNumber}/comments`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${args.token}`,
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ body: args.body })
+    });
+    if (!res.ok) {
+      info(`::warning::could not comment on PR #${args.issueNumber} (${res.status})`);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    info(`::warning::could not comment on PR #${args.issueNumber}: ${err.message}`);
+    return false;
+  }
 }
 async function addLabels(args, prNumber, labels) {
   const res = await fetch(`https://api.github.com/repos/${args.owner}/${args.repo}/issues/${prNumber}/labels`, {
@@ -233120,7 +234185,7 @@ ${push2.combined.split(token).join("***")}`);
   const draft = summary.needsReview || stillBroken;
   const reviewLabel = getInput("review-label") || "needs-review";
   const title = `chore(deps): bump ${summary.dep} ${summary.from} \u2192 ${summary.to}`;
-  const url = await createPullRequest({
+  const pr2 = await createPullRequest({
     token,
     owner,
     repo,
@@ -233131,11 +234196,15 @@ ${push2.combined.split(token).join("***")}`);
     draft,
     labels: summary.needsReview ? [reviewLabel] : void 0
   });
-  setOutput("pr-url", url ?? "");
-  if (!url) {
+  setOutput("pr-url", pr2?.url ?? "");
+  if (!pr2) {
     setOutput("status", "pr-failed");
     setFailed("branch pushed, but creating the pull request failed (see warnings above).");
     return;
+  }
+  const impactComment = renderImpactComment(summary);
+  if (impactComment) {
+    await addIssueComment({ token, owner, repo, issueNumber: pr2.number, body: impactComment });
   }
   setOutput("status", stillBroken ? "unfixed" : summary.needsReview ? "pr-needs-review" : "pr-opened");
   info(draft ? "opened a draft PR for review." : "opened a PR \u2014 build + tests green.");

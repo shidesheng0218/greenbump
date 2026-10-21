@@ -48,6 +48,10 @@ program
   .option("--workspace <path>", "disambiguate a dep that's outdated at different versions in multiple workspace packages")
   .option("--scan", "preview upgrade impact without upgrading: lists outdated deps and the files/lines known breaking changes would touch (deterministic — no LLM, no API key)")
   .option("--no-impact", "with --scan, just list outdated dependencies without impact analysis")
+  .option("--security", "pick the target by known vulnerabilities (osv.dev) instead of by how outdated it is")
+  .option("--dry-run", "diagnose only: report impact, advisories and estimated cost without changing anything")
+  .option("--no-co-upgrade-peers", "do not co-upgrade peer dependencies that the target version requires")
+  .option("--revert <dep>", "undo the last greenbump bump for <dep> as a revert commit on a new branch")
   .option("--sandbox", "run tests in isolated Docker container (requires Docker)")
   .option("--services <services>", "comma-separated list of services to start (postgres,redis,mongodb)")
   .option("--keep-container", "keep Docker container after run for debugging")
@@ -109,6 +113,42 @@ program
 
     if (opts.listEcosystems) {
       console.log("Supported dependency ecosystems:\n" + listEcosystems());
+      process.exit(0);
+    }
+
+    if (opts.revert) {
+      const cwd = opts.cwd ? resolve(opts.cwd) : process.cwd();
+      const { revertDependency } = await import("./cli/revert.js");
+      const result = await revertDependency(cwd, opts.revert);
+      if (result.ok) {
+        console.log(pc.green("✓ ") + result.message);
+        process.exit(0);
+      }
+      console.error(pc.red("✗ ") + result.message);
+      process.exit(1);
+    }
+
+    if (opts.dryRun) {
+      const cwd = opts.cwd ? resolve(opts.cwd) : process.cwd();
+      const pm = opts.ecosystem || await detectPackageManager(cwd);
+      if (!pm) {
+        console.error(pc.red("✗ Could not detect package manager. Use --ecosystem to specify one."));
+        process.exit(1);
+      }
+      const { buildDryRunReport } = await import("./cli/dryrun.js");
+      const report = await buildDryRunReport({
+        cwd,
+        pm,
+        dep: deps[0],
+        to: opts.to,
+        security: opts.security,
+        noCache: opts.cache === false,
+      });
+      if (opts.json) {
+        console.log(JSON.stringify({ report }, null, 2));
+      } else {
+        console.log(report);
+      }
       process.exit(0);
     }
 
@@ -223,6 +263,8 @@ program
       astAnalysis: opts.astAnalysis !== false,
       enhancedLoop: opts.enhancedLoop !== false,
       worktree: opts.worktree,
+      security: opts.security,
+      coUpgradePeers: opts.coUpgradePeers !== false,
     };
 
     const isBatch = opts.all || deps.length > 1;

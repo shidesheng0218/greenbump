@@ -130,6 +130,26 @@ React 19 移除了 `ReactDOM.render`。下面是 greenbump 智能体为修复该
 - 🧾 **`--scan --json`**（`schemaVersion: 1`）可接入 CI 门禁和看板
 - 🤝 **设计上就诚实**：没有已知分析结果的依赖会被标为 `unknown`，而不是瞎猜
 
+### 🔒 安全驱动的升级（v0.10.0+）
+- 🎯 **`--security`** 按**已知漏洞**（osv.dev）选目标，而不是按落后多少个版本——差一个补丁
+  但带 critical CVE 的包，优先级高于落后一个大版本但没有漏洞的包
+- 📋 报告每条公告、严重级别，以及修复它所需的最低版本
+- 🤝 安全升级恰恰是最容易破坏代码的那类升级，而这正是 greenbump 的强项
+
+### 🔗 Peer 依赖联动升级（v0.10.0+）
+- `react-dom@19` 要求 `react@19`；不联动升级的话，`npm install` 会以 ERESOLVE 失败，
+  修复循环根本不会启动。greenbump 会读取目标版本的 `peerDependencies` 并一并升级
+- `--no-co-upgrade-peers` 可关闭该行为
+
+### 🧪 提交前先验证（v0.10.0+）
+- **`--dry-run`** —— 影响面、漏洞、peer 依赖要求和预估成本，不安装、不修改、不调用模型
+- **`--revert <依赖名>`** —— 合并后生产炸了，用一条普通 revert 提交在独立分支上回滚
+
+### 🔌 MCP Server（v0.10.0+）
+- `greenbump-mcp` 通过 stdio 提供 Model Context Protocol 服务，编辑器里的 AI agent
+  （Claude Code、Cursor）可以直接问「这次升级会破坏什么」，得到精确到 file:line 的答案
+  —— 确定性分析，不调用模型、不写文件
+
 ### 🛡️ 默认安全
 - **Git 分支隔离** — 绝不触碰你的主分支
 - **不自动合并** — 始终需要人工审查
@@ -301,6 +321,10 @@ npx greenbump react react-dom --group react-upgrade
 | `--cache-clear [category]` | 清除缓存条目（`changelogs`、`llm-fixes`、`patterns`；省略则全部清除）。 |
 | `--stats [days]` | 显示最近 N 天（默认 30 天）的用量与节省报告并退出。 |
 | `--json` | 配合 `--stats` 或 `--scan` 使用，输出原始 JSON 而非格式化报告。 |
+| `--security` | 按已知漏洞（osv.dev）选择升级目标，而非按过时程度。 |
+| `--dry-run` | 仅诊断：输出影响面、漏洞、peer 依赖要求和预估成本，不做任何修改。 |
+| `--no-co-upgrade-peers` | 不联动升级目标版本所要求的 peer 依赖。 |
+| `--revert <依赖名>` | 在新分支上以一条 revert 提交回滚该依赖最近一次 greenbump 升级。 |
 
 #### 分层修复策略如何降低成本
 
@@ -621,7 +645,7 @@ jobs:
 - [x] **v0.7.0**：codemod 库扩展（24 条）、`--stats` 用量与成本报告
 - [x] **v0.8.0**：工具层硬防护、逐次调用成本账本、`--digest-model` 廉价模型路由
 - [x] **v0.9.0**：确定性 `--scan` 影响面预览 + 验证器闭环反馈 + 可复现 benchmark 套件
-- [ ] **下一步**：量化的影响面报告（"上游 1,934 个变更，其中 3 个影响你，已全部修复"）以及 MCP server，让编辑器可直接调用 greenbump
+- [x] **v0.10.0**：安全驱动升级（osv.dev）、peer 依赖联动、`--dry-run`、`--revert`、MCP server、量化影响面报告
 - [ ] **v1.0.0**：生产可用版本
 
 ---

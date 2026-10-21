@@ -1,5 +1,5 @@
 import { run, RunError } from "../engine/run.js";
-import { renderPrBody } from "../pr.js";
+import { renderPrBody, renderImpactComment } from "../pr.js";
 import { exec } from "../engine/exec.js";
 import { buildReport, writeReport } from "../report.js";
 import {
@@ -8,6 +8,7 @@ import {
   info,
   setFailed,
   createPullRequest,
+  addIssueComment,
 } from "./github.js";
 
 async function main(): Promise<void> {
@@ -104,7 +105,7 @@ async function main(): Promise<void> {
   const draft = summary.needsReview || stillBroken;
   const reviewLabel = getInput("review-label") || "needs-review";
   const title = `chore(deps): bump ${summary.dep} ${summary.from} → ${summary.to}`;
-  const url = await createPullRequest({
+  const pr = await createPullRequest({
     token,
     owner,
     repo,
@@ -116,14 +117,21 @@ async function main(): Promise<void> {
     labels: summary.needsReview ? [reviewLabel] : undefined,
   });
 
-  setOutput("pr-url", url ?? "");
-  if (!url) {
+  setOutput("pr-url", pr?.url ?? "");
+  if (!pr) {
     // The branch IS pushed but the PR could not be created — saying
     // "pr-opened" here would be lying about what happened.
     setOutput("status", "pr-failed");
     setFailed("branch pushed, but creating the pull request failed (see warnings above).");
     return;
   }
+  // Tell the reviewer what this bump actually meant for this repo. Comments
+  // that would only restate the PR body are skipped.
+  const impactComment = renderImpactComment(summary);
+  if (impactComment) {
+    await addIssueComment({ token, owner, repo, issueNumber: pr.number, body: impactComment });
+  }
+
   setOutput("status", stillBroken ? "unfixed" : summary.needsReview ? "pr-needs-review" : "pr-opened");
   info(draft ? "opened a draft PR for review." : "opened a PR — build + tests green.");
 }

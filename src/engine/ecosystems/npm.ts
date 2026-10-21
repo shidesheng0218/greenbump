@@ -13,10 +13,19 @@ async function readScripts(cwd: string): Promise<{ build?: string; test?: string
   }
 }
 
-export function parseNpmOutdated(data: Record<string, { current?: string; latest?: string }> | null): Outdated[] {
+export function parseNpmOutdated(data: Record<string, { current?: string; wanted?: string; latest?: string }> | null): Outdated[] {
   if (!data) return [];
   return Object.entries(data)
-    .map(([name, v]) => ({ name, current: v.current ?? "", wanted: "", latest: v.latest ?? "" }))
+    .map(([name, v]) => {
+      // `npm outdated` omits `current` when the package is only in the
+      // lockfile and not physically installed in node_modules (CI before
+      // `npm ci`, partial installs). Falling back to `wanted` — the version
+      // that satisfies the manifest, i.e. what the lockfile pins — keeps the
+      // target version non-empty; an empty `from` would silently disable
+      // codemod matching, changelog lookup and impact analysis.
+      const current = v.current ?? v.wanted ?? "";
+      return { name, current, wanted: v.wanted ?? "", latest: v.latest ?? "" };
+    })
     .filter((o) => o.latest && o.current !== o.latest);
 }
 

@@ -26,10 +26,15 @@ import { runInSandbox } from "./sandbox/orchestrator.js";
 import { captureBaseline, loadBaseline } from "./perf/metrics.js";
 import { comparePerformance, displayPerformanceComparison, hasRegressions } from "./perf/regression.js";
 import { analyzeApiChanges, readFromGitHead } from "./verifiers/ast-analyzer.js";
+import { findUnreferencedEdits } from "./verifiers/coverage-hint.js";
 import { digestChangelog, renderDigestForPrompt } from "./analyzers/changelog-parser.js";
 import { getCache } from "./cache/manager.js";
 import { recordRun, type RunRecord } from "./stats/recorder.js";
 import { recordLlmCall, type LlmCallSink } from "../agent/calllog.js";
+import { scanOutdatedForVulns, type VulnFinding } from "./security/scan.js";
+import { findPeerConflicts } from "./peers.js";
+import { buildScanReport } from "./scan/impact.js";
+import { WORKSPACE_ROOT, type WorkspaceOutdated } from "./workspace.js";
 
 export interface RunOptions {
   cwd: string;
@@ -82,6 +87,17 @@ export interface RunOptions {
   onFixSuggestion?: (suggestion: FixSuggestion) => Promise<FixDecision>;
   /** run AST-level API-surface analysis after the fix */
   astAnalysis?: boolean;
+  /**
+   * Pick the target by known vulnerabilities (osv.dev) instead of by how
+   * outdated it is. With no explicit dep, the worst advisory wins.
+   */
+  security?: boolean;
+  /**
+   * Co-upgrade peer dependencies whose declared range the target version
+   * would violate (e.g. react-dom@19 requires react@19). Defaults to true —
+   * without it `npm install` fails with ERESOLVE and the fix loop never runs.
+   */
+  coUpgradePeers?: boolean;
   /**
    * feed verifier findings (type errors, API-surface breaks) back into the fix
    * loop so the agent can repair them itself (default: true; --no-enhanced-loop disables)
@@ -136,6 +152,22 @@ export interface RunSummary {
   cacheHit?: boolean;
   /** AST-level API surface changes detected after the fix */
   apiChanges?: string[];
+  /** peer dependencies co-upgraded alongside the target to satisfy its peer ranges */
+  coUpgraded?: Array<{ name: string; from: string; to: string }>;
+  /** known advisories affecting the target's pre-upgrade version, worst first */
+  vulnerabilities?: Array<{ id: string; severity: string; summary: string }>;
+  /**
+   * Deterministic impact of this upgrade, computed BEFORE anything changed:
+   * how many breaking changes are known for this path, and how many actually
+   * touch this codebase. Powers "1,934 changes upstream, 3 touch you" reporting.
+   */
+  impact?: { knownChanges: number; affectedChanges: number; filesAffected: number; locations: number };
+  /**
+   * Edited files that no test file appears to reference. When non-empty, a
+   * green build means "still compiles", not "verified" — reported as a caveat,
+   * not as a review flag, since it's a heuristic about the user's test suite.
+   */
+  unverifiedEdits?: string[];
   diffStat?: string;
   fullDiff?: string;
   durationMs: number;
@@ -257,9 +289,36 @@ export async function run(opts: RunOptions): Promise<RunSummary> {
   }
 
   // 2. select target
+  //    With --security the target is chosen by known advisories instead of by
+  //    how far behind it is: a one-patch-behind package with a critical CVE
+  //    matters more than a major-behind one with none.
+  let vulnFindings: VulnFinding[] = [];
+  if (opts.security) {
+    log("checking outdated dependencies for known advisories (osv.dev)…");
+    vulnFindings = await scanOutdatedForVulns(pm, outdated, {
+      onProgress: (done, total) => {
+        if (done === total) log(`checked ${total} dependenc${total === 1 ? "y" : "ies"}`);
+      },
+    });
+    if (vulnFindings.length > 0) {
+      const worst = vulnFindings[0];
+      log(
+        `${vulnFindings.length} dependenc${vulnFindings.length === 1 ? "y" : "ies"} with known advisories — ` +
+          `worst: ${worst.name} (${worst.worst.severity})`,
+      );
+      for (const f of vulnFindings.slice(0, 5)) {
+        log(`  ${f.worst.severity.padEnd(8)} ${f.name}@${f.current} — ${f.worst.id}`);
+      }
+    } else {
+      log("no known advisories in outdated dependencies — falling back to most-outdated selection");
+    }
+  }
+
   const target = opts.dep
     ? outdated.find((o) => o.name === opts.dep)
-    : outdated[0];
+    : opts.security && vulnFindings.length > 0
+      ? { name: vulnFindings[0].name, current: vulnFindings[0].current, wanted: "", latest: vulnFindings[0].latest }
+      : outdated[0];
   if (!target) {
     throw new RunError(
       `\`${opts.dep}\` is not outdated (or not a direct dependency). Available: ${outdated
@@ -311,6 +370,7 @@ export async function run(opts: RunOptions): Promise<RunSummary> {
       startedAt,
       log,
       checkOverrides,
+      vulnFindings,
     });
   } finally {
     if (worktreeDir) {
@@ -332,6 +392,8 @@ interface ContextRunArgs extends RunOptions {
   startedAt: number;
   log: (m: string) => void;
   checkOverrides: CheckOverrides;
+  /** advisories found by --security, so the summary can report them */
+  vulnFindings?: VulnFinding[];
 }
 
 async function runInContext(args: ContextRunArgs): Promise<RunSummary> {
@@ -348,6 +410,9 @@ async function runInContext(args: ContextRunArgs): Promise<RunSummary> {
     checkOverrides,
   } = args;
   const opts = args;
+
+  /** Advisories already found for this exact target by --security (may be empty). */
+  const vulnsForTarget = args.vulnFindings?.find((f) => f.name === target.name)?.vulns ?? [];
 
   // 4. Performance baseline (if regression detection enabled)
   let perfBaseline;
@@ -375,10 +440,40 @@ async function runInContext(args: ContextRunArgs): Promise<RunSummary> {
   const baselineGreen = baseline.ok && !baseline.unverifiable;
 
   // 5. upgrade
+  // 5a. peer co-upgrade — some upgrades cannot succeed alone. react-dom@19
+  //     declares peer react@^19, so without this `npm install` fails with
+  //     ERESOLVE and we never reach the fix loop at all.
+  const coUpgraded: Array<{ name: string; from: string; to: string }> = [];
+  if (opts.coUpgradePeers !== false) {
+    const conflicts = await findPeerConflicts(cwd, pm, target.name, to);
+    for (const c of conflicts) {
+      if (c.resolution === "missing") {
+        log(
+          `peer: ${c.name} is required by ${target.name}@${to} (${c.required}) but is not a direct dependency — ` +
+            `${pm} may install it automatically`,
+        );
+        continue;
+      }
+      if (c.resolution === "unknown" || !c.suggested) {
+        log(`peer: ${c.name}@${c.current} does not satisfy ${c.required}, and no single version could be derived`);
+        continue;
+      }
+      log(`peer: co-upgrading ${c.name} ${c.current} → ${c.suggested} (required by ${target.name}@${to}: ${c.required})`);
+      const peerUp = await upgradeDependency(pm, cwd, c.name, c.suggested);
+      if (peerUp.ok) {
+        coUpgraded.push({ name: c.name, from: c.current ?? "", to: c.suggested });
+      } else {
+        log(`peer: could not co-upgrade ${c.name} — continuing, the package manager may still resolve it`);
+      }
+    }
+  }
+
   log(`installing ${target.name}@${to}…`);
   const up = await upgradeDependency(pm, cwd, target.name, to);
   if (!up.ok) {
-    throw new RunError(`${pm} failed to install ${target.name}@${to}:\n${up.output}`);
+    const peerHint =
+      coUpgraded.length > 0 ? `\n\n(peer dependencies were already co-upgraded: ${coUpgraded.map((p) => `${p.name}@${p.to}`).join(", ")})` : "";
+    throw new RunError(`${pm} failed to install ${target.name}@${to}:\n${up.output}${peerHint}`);
   }
 
   // 6. verify
@@ -402,6 +497,16 @@ async function runInContext(args: ContextRunArgs): Promise<RunSummary> {
     editedFiles: [],
     testFilesTouched: [],
     durationMs: 0,
+    ...(coUpgraded.length > 0 ? { coUpgraded } : {}),
+    ...(vulnsForTarget.length > 0
+      ? {
+          vulnerabilities: vulnsForTarget.map((v) => ({
+            id: v.id,
+            severity: v.severity,
+            summary: v.summary,
+          })),
+        }
+      : {}),
   };
 
   if (post.unverifiable) {
@@ -425,6 +530,23 @@ async function runInContext(args: ContextRunArgs): Promise<RunSummary> {
 
   // 7. broke — fetch changelog context, then run the fix agent
   summary.neededFix = true;
+
+  // How much of this upgrade actually lands on this codebase? Computed now —
+  // source files still contain the old API usage, so the deterministic scan
+  // sees the same breakage the fix loop is about to chase.
+  try {
+    const impact = await computeImpact(cwd, target, to);
+    if (impact.knownChanges > 0) {
+      summary.impact = impact;
+      log(
+        `impact: ${impact.knownChanges} known breaking change(s) for this path, ` +
+          `${impact.affectedChanges} touch this codebase (${impact.filesAffected} file(s), ${impact.locations} location(s))`,
+      );
+    }
+  } catch {
+    // Impact is reporting only — never let it interfere with the fix.
+  }
+
   let changelog = await fetchChangelog(target.name, from, to, { cache: !opts.noCache });
   if (changelog) log(`found changelog/release notes for ${target.name}`);
 
@@ -537,6 +659,18 @@ async function runInContext(args: ContextRunArgs): Promise<RunSummary> {
     );
   }
 
+  // Coverage caveat: are the files the agent edited reachable from any test?
+  if (fix.fixed && fix.editedFiles.length > 0) {
+    const unreferenced = await findUnreferencedEdits(cwd, fix.editedFiles);
+    if (unreferenced.length > 0) {
+      summary.unverifiedEdits = unreferenced;
+      log(
+        `⚠️  ${unreferenced.length} edited file(s) are not referenced by any test — ` +
+          `a green build confirms they compile, not that they work`,
+      );
+    }
+  }
+
   // AST-level API surface analysis (did the fix quietly change OUR exports?)
   if (opts.astAnalysis !== false && fix.fixed && fix.editedFiles.length > 0) {
     log("analyzing API surface changes…");
@@ -615,6 +749,35 @@ async function runInContext(args: ContextRunArgs): Promise<RunSummary> {
   summary.durationMs = Date.now() - startedAt;
   await recordRun(summaryToRecord(summary, provider.model), log);
   return summary;
+}
+
+/**
+ * Deterministic impact of an upgrade path: how many breaking changes are known
+ * for it, and how many of those actually appear in this codebase.
+ *
+ * This is what turns a fix into a defensible claim — "1,934 changes upstream,
+ * 3 touch you, all fixed" — instead of "the agent said it was done".
+ */
+async function computeImpact(
+  cwd: string,
+  target: { name: string; current: string },
+  to: string,
+): Promise<{ knownChanges: number; affectedChanges: number; filesAffected: number; locations: number }> {
+  const entry: WorkspaceOutdated = {
+    name: target.name,
+    current: target.current,
+    wanted: "",
+    latest: to,
+    workspacePath: WORKSPACE_ROOT,
+  };
+  const report = await buildScanReport(cwd, [entry]);
+  const det = report.detections[0];
+  return {
+    knownChanges: det?.changes.length ?? 0,
+    affectedChanges: det?.changes.filter((c) => c.matches > 0).length ?? 0,
+    filesAffected: det?.filesMatched ?? 0,
+    locations: det?.locationsMatched ?? 0,
+  };
 }
 
 async function maybeCommit(

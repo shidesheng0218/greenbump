@@ -110,7 +110,7 @@ export function codemodsForUpgrade(
   const fromMajor = parseMajor(fromVersion);
   const toMajor = parseMajor(toVersion);
 
-  return builtinCodemods().filter((c) => {
+  const matched = builtinCodemods().filter((c) => {
     if (c.package === "*") {
       // Generic runtime codemods only apply to Node-runtime upgrades.
       if (!NODE_RUNTIME_PACKAGES.has(packageName)) return false;
@@ -119,6 +119,19 @@ export function codemodsForUpgrade(
     }
     // Shared with the fix loop so the two can't drift.
     return codemodMatchesRange(c.versionRange, fromMajor, toMajor);
+  });
+
+  // The registry carries separate variants per import-quote style (e.g.
+  // React's single- and double-quoted `import ReactDOM from …`). Both must
+  // exist for the fix loop — it picks whichever matches — but for reporting
+  // they describe the SAME breaking change, so counting both would double
+  // every location. Dedupe by search pattern here, in the scan path only.
+  const seen = new Set<string>();
+  return matched.filter((c) => {
+    const key = c.transform?.find ?? `guidance:${c.description}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
   });
 }
 

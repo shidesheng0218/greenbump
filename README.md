@@ -149,6 +149,31 @@ then re-ran your test suite to confirm the fix — all inside the fix loop shown
 - 🤝 **Honest by construction**: a dependency with no known analysis is reported as
   `unknown` rather than guessed at
 
+### 🔒 Security-Driven Upgrades (v0.10.0+)
+- 🎯 **`--security`** picks the target by *known advisories* (osv.dev), not by how far
+  behind it is — a one-patch-behind package with a critical CVE outranks a major-behind
+  one with none
+- 📋 Reports every advisory, its severity and the lowest version that fixes it
+- 🤝 Security bumps are exactly the ones that break code, which is the part greenbump
+  already handles
+
+### 🔗 Peer Dependencies Move Together (v0.10.0+)
+- `react-dom@19` requires `react@19`; without co-upgrading, `npm install` fails with
+  ERESOLVE and the fix loop never runs. greenbump reads the target's `peerDependencies`
+  and moves the required peers with it
+- `--no-co-upgrade-peers` disables it
+
+### 🧪 Verify Before You Commit (v0.10.0+)
+- **`--dry-run`** — impact, advisories, peer requirements and an estimated cost, with
+  nothing installed, edited or sent to a model
+- **`--revert <dep>`** — if a merged bump broke production, undo it as a normal revert
+  commit on its own branch
+
+### 🔌 MCP Server (v0.10.0+)
+- `greenbump-mcp` speaks the Model Context Protocol over stdio, so an editor agent
+  (Claude Code, Cursor) can ask "what would this upgrade break?" and get file:line
+  answers — deterministic, no model calls, no file writes
+
 ### 🛡️ Safe by Default
 - **Git branch isolation** - Never touches your main branch
 - **No auto-merge** - Always requires human review
@@ -330,6 +355,10 @@ npx greenbump react react-dom --group react-upgrade
 | `--cache-clear [category]` | Clear cached entries (`changelogs`, `llm-fixes`, `patterns`; all if omitted). |
 | `--stats [days]` | Show a usage/cost-savings report for the last N days (default 30) and exit. |
 | `--json` | With `--stats` or `--scan`, print the raw JSON output instead of the formatted report. |
+| `--security` | Choose the target by known vulnerabilities (osv.dev) rather than by how outdated it is. |
+| `--dry-run` | Diagnose only: report impact, advisories, peer requirements and estimated cost; change nothing. |
+| `--no-co-upgrade-peers` | Don't co-upgrade peer dependencies the target version requires. |
+| `--revert <dep>` | Undo the last greenbump bump for `<dep>` as a revert commit on a new branch. |
 
 #### How the tiered fix strategy keeps costs down
 
@@ -824,7 +853,7 @@ Full example with all inputs: [examples/greenbump.yml](examples/greenbump.yml)
 - [x] **v0.7.0**: Expanded codemod library (24 codemods), `--stats` usage/cost report
 - [x] **v0.8.0**: Hard tool-layer guardrails, per-call cost ledger, cheap `--digest-model` routing
 - [x] **v0.9.0**: Deterministic `--scan` impact preview + verifier feedback loop + reproducible benchmark suite
-- [ ] **Next**: Quantified impact reporting ("1,934 changes upstream, 3 touch you, all fixed") and an MCP server so editors can call greenbump directly
+- [x] **v0.10.0**: Security-driven upgrades (osv.dev), peer-dependency co-upgrading, `--dry-run`, `--revert`, MCP server, quantified impact reporting
 - [ ] **v1.0.0**: Production-ready release
 
 ---

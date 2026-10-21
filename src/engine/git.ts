@@ -91,3 +91,33 @@ export async function changedFiles(cwd: string, ref: string): Promise<string[]> 
     .map((s) => s.trim())
     .filter(Boolean);
 }
+
+/**
+ * Most recent commit whose message matches `needle` (a literal substring).
+ * Used to find the bump that introduced a dependency so it can be reverted.
+ */
+export async function findCommitByMessage(
+  cwd: string,
+  needle: string,
+): Promise<{ sha: string; subject: string } | null> {
+  const r = await exec(
+    "git",
+    ["log", "--all", `--grep=${needle}`, "--fixed-strings", "--format=%H%x09%s", "-n", "1"],
+    { cwd, timeout: GIT_TIMEOUT_MS },
+  );
+  if (r.code !== 0) return null;
+  const line = r.stdout.trim().split("\n")[0];
+  if (!line) return null;
+  const [sha, ...rest] = line.split("\t");
+  if (!sha) return null;
+  return { sha, subject: rest.join("\t") };
+}
+
+/** Revert a commit on the current branch. Returns whether it applied cleanly. */
+export async function revertCommit(
+  cwd: string,
+  sha: string,
+): Promise<{ ok: boolean; output: string }> {
+  const r = await exec("git", ["revert", "--no-edit", sha], { cwd, timeout: GIT_TIMEOUT_MS });
+  return { ok: r.code === 0, output: r.combined };
+}

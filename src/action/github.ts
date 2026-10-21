@@ -37,8 +37,10 @@ export interface CreatePrArgs {
   labels?: string[];
 }
 
-/** Create a PR via the REST API using Node's global fetch. Returns the PR URL, or null on failure. */
-export async function createPullRequest(args: CreatePrArgs): Promise<string | null> {
+/** Create a PR via the REST API using Node's global fetch. Returns the PR, or null on failure. */
+export async function createPullRequest(
+  args: CreatePrArgs,
+): Promise<{ url: string; number: number } | null> {
   const res = await fetch(
     `https://api.github.com/repos/${args.owner}/${args.repo}/pulls`,
     {
@@ -71,7 +73,44 @@ export async function createPullRequest(args: CreatePrArgs): Promise<string | nu
     await addLabels(args, data.number, args.labels);
   }
 
-  return data.html_url ?? null;
+  if (!data.html_url || !data.number) return null;
+  return { url: data.html_url, number: data.number };
+}
+
+/**
+ * Post a comment on a PR/issue. Best-effort: a failure is a warning, never a
+ * reason to fail the run.
+ */
+export async function addIssueComment(args: {
+  token: string;
+  owner: string;
+  repo: string;
+  issueNumber: number;
+  body: string;
+}): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${args.owner}/${args.repo}/issues/${args.issueNumber}/comments`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${args.token}`,
+          Accept: "application/vnd.github+json",
+          "X-GitHub-Api-Version": "2022-11-28",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ body: args.body }),
+      },
+    );
+    if (!res.ok) {
+      info(`::warning::could not comment on PR #${args.issueNumber} (${res.status})`);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    info(`::warning::could not comment on PR #${args.issueNumber}: ${(err as Error).message}`);
+    return false;
+  }
 }
 
 /** The "create PR" endpoint doesn't accept labels directly — attach them via a follow-up call. */

@@ -44,6 +44,27 @@ export function printSummaryBox(summary: RunSummary, write: (s: string) => void)
   write(bar(`${pc.dim("package manager")}  ${summary.packageManager}`));
   write(bar(`${pc.dim("duration")}         ${formatDuration(summary.durationMs)}`));
 
+  // Peer dependencies pulled along with the target — without these the install
+  // itself would have failed (react-dom@19 requiring react@19, and so on).
+  if (summary.coUpgraded && summary.coUpgraded.length > 0) {
+    write(
+      bar(
+        `${pc.dim("peers upgraded")}  ${summary.coUpgraded.map((p) => `${p.name} ${p.from}→${p.to}`).join(", ")}`,
+      ),
+    );
+  }
+
+  if (summary.vulnerabilities && summary.vulnerabilities.length > 0) {
+    write(bar(""));
+    write(bar(pc.red(`🔒 ${summary.vulnerabilities.length} known advisor${summary.vulnerabilities.length === 1 ? "y" : "ies"} on the old version:`)));
+    for (const v of summary.vulnerabilities.slice(0, 5)) {
+      write(bar(`  ${pc.red("·")} ${v.id} [${v.severity}] ${v.summary.slice(0, 80)}`));
+    }
+    if (summary.vulnerabilities.length > 5) {
+      write(bar(`  ${pc.dim(`… +${summary.vulnerabilities.length - 5} more`)}`));
+    }
+  }
+
   if (summary.neededFix) {
     write(bar(`${pc.dim("fix rounds")}       ${summary.rounds}`));
     write(
@@ -66,6 +87,19 @@ export function printSummaryBox(summary: RunSummary, write: (s: string) => void)
       );
     }
 
+    // What this upgrade actually meant for this codebase: of all the breaking
+  // changes known for the path, how many touched it. The number that makes a
+  // "fixed" claim verifiable rather than hopeful.
+    if (summary.impact && summary.impact.knownChanges > 0) {
+      const { knownChanges, affectedChanges, filesAffected, locations } = summary.impact;
+      write(
+        bar(
+          `${pc.dim("impact")}          ${knownChanges} known change(s) · ${pc.green(String(affectedChanges))} touch this code ` +
+            pc.dim(`(${filesAffected} file(s), ${locations} location(s))`),
+        ),
+      );
+    }
+
     write(bar(`${pc.dim("files edited")}     ${summary.editedFiles.length}`));
     for (const f of summary.editedFiles.slice(0, 6)) write(bar(`  ${pc.cyan("·")} ${f}`));
     if (summary.editedFiles.length > 6) write(bar(`  ${pc.dim(`… +${summary.editedFiles.length - 6} more`)}`));
@@ -74,6 +108,15 @@ export function printSummaryBox(summary: RunSummary, write: (s: string) => void)
       write(bar(""));
       write(bar(pc.yellow(`⚠ agent modified test file(s) — review closely:`)));
       for (const f of summary.testFilesTouched) write(bar(`  ${pc.yellow("·")} ${f}`));
+    }
+
+    if (summary.unverifiedEdits && summary.unverifiedEdits.length > 0) {
+      write(bar(""));
+      write(bar(pc.yellow(`⚠ no test references these edited file(s) — green means "compiles", not "works":`)));
+      for (const f of summary.unverifiedEdits.slice(0, 5)) write(bar(`  ${pc.yellow("·")} ${f}`));
+      if (summary.unverifiedEdits.length > 5) {
+        write(bar(`  ${pc.dim(`… +${summary.unverifiedEdits.length - 5} more`)}`));
+      }
     }
 
     if (summary.suspiciousChanges && summary.suspiciousChanges.length > 0) {

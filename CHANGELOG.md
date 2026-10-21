@@ -3,7 +3,66 @@
 All notable changes to this project are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased] - v0.9.0
+## [Unreleased] - v0.10.0
+
+### Added
+- **Security-driven upgrades (`--security`)**: picks the target by known advisories rather
+  than by how far behind it is — a one-patch-behind package with a critical CVE outranks a
+  major-behind one with none. Advisories come from osv.dev over one HTTPS POST (no SDK,
+  no API key, no new dependency); each finding reports severity, CVE/GHSA aliases and the
+  lowest version that fixes it. Security bumps are precisely the upgrades that break code,
+  which is the part greenbump already handles.
+- **Peer-dependency co-upgrading**: `react-dom@19` declares `peer react@^19`, so upgrading
+  it alone makes `npm install` fail with ERESOLVE before the fix loop can even start.
+  greenbump now reads the target version's `peerDependencies` from the registry, reports
+  which ones the project violates, and co-upgrades them to the smallest satisfying version
+  (logged, and recorded in `RunSummary.coUpgraded`). `--no-co-upgrade-peers` opts out.
+  Includes a dependency-free semver range matcher (`src/engine/semver-lite.ts`) covering
+  caret, tilde, comparator, x-range, hyphen and `||` forms.
+- **`--dry-run`**: impact, advisories, peer requirements and an estimated cost, with
+  nothing installed, edited, committed or sent to a model. Reports `$0` when a built-in
+  codemod covers the change, and an explicit token estimate otherwise.
+- **`--revert <dep>`**: undoes the last greenbump bump as a normal revert commit on its
+  own branch — for the case the tool cannot prevent (merged, green, still broke in
+  production). Refuses on a dirty tree and reports conflicts instead of leaving a mess.
+- **Quantified impact reporting**: before running the fix loop, greenbump records how many
+  breaking changes are known for the upgrade path and how many actually touch the codebase
+  (`RunSummary.impact`). Surfaced in the terminal summary, the PR body and the PR comment
+  as "N known changes · M touch this code (x files, y locations)" — the number that makes a
+  "fixed" claim checkable instead of hopeful.
+- **MCP server (`greenbump-mcp`)**: a stdio Model Context Protocol server exposing the
+  deterministic half of greenbump — `list_outdated`, `scan_impact`, `check_upgrade`,
+  `security_scan`. Editor agents (Claude Code, Cursor) can ask what an upgrade would break
+  and get file:line answers. No SDK dependency (JSON-RPC 2.0 over newline-delimited stdio),
+  no model calls, no file writes.
+- **PR impact comment**: the GitHub Action now posts a comment summarizing impact, peer
+  dependencies that moved and advisories cleared. Skipped when it would only restate the
+  PR body.
+- **Coverage caveat**: when the fix agent edits a file that no test references, the summary,
+  PR body and logs say so — a green build then proves the code compiles, not that it works.
+  Deliberately a caveat, not a review flag, and skipped entirely when a project has no tests
+  (already covered by `unverifiable`).
+- New modules: `src/engine/semver-lite.ts`, `src/engine/peers.ts`,
+  `src/engine/security/{osv,scan}.ts`, `src/engine/scan/*` (v0.9.0),
+  `src/engine/verifiers/coverage-hint.ts`, `src/cli/{dryrun,revert}.ts`, `src/mcp/server.ts`.
+
+### Fixed
+- **`npm outdated` omits `current` for dependencies that are only in the lockfile.** Any
+  project where a package is declared but not physically installed (CI before `npm ci`,
+  partial installs) produced an empty "from" version, which silently disabled codemod
+  matching, changelog lookup and impact analysis. Falls back to `wanted`.
+- **Duplicate codemod variants were double-counted in impact analysis.** The registry holds
+  separate entries per import-quote style (React's single- and double-quoted imports), so one
+  source line was reported as two breaking changes. Deduped by search pattern in the scan
+  path only — the fix loop still needs both.
+- **GitHub advisories report severity as `MODERATE`**, which was not mapped, so roughly half
+  of real lodash advisories showed as "unknown". Mapped to medium; numeric CVSS scores are
+  still banded, and vector-only records stay "unknown" rather than being guessed at.
+- **MCP server failed to start in directories whose path contains a space or non-ASCII
+  characters** — `import.meta.url` percent-encodes them, so the naive `file://${argv[1]}`
+  entry-point check never matched.
+
+## [0.9.0] - 2026-10-14
 
 ### Added
 - **Deterministic preview — `greenbump --scan` impact analysis**: `--scan` no longer just
